@@ -570,3 +570,11 @@ def test_installable_app_files_are_public(app):
     sw = c.get("/sw.js")
     assert sw.status_code == 200 and "javascript" in sw.headers["Content-Type"]
     assert b'rel="manifest"' in c.get("/login").data
+
+
+def test_hidden_from_search_engines(app):
+    c = app.test_client()
+    r = c.get("/robots.txt")
+    assert r.status_code == 200 and b"Disallow: /" in r.data
+    login_page = c.get("/login")
+    assert "noindex" in login_page.headers["X-Robots-Tag"] and b'name="robots" content="noindex' in login_page.data

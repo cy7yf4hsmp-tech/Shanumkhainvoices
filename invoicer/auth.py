@@ -47,7 +47,7 @@ EDIT_PAGES = {"main.product_new", "main.product_edit", "main.product_import", "m
               "main.invoice_new", "main.expense_edit", "main.loan_form"}
 # Endpoints that don't belong to the section their name suggests.
 SECTION_OVERRIDES = {"main.invoice_pay": "payments"}
-PUBLIC_ENDPOINTS = {"auth.login", "auth.setup", "auth.manifest", "auth.service_worker", "static"}
+PUBLIC_ENDPOINTS = {"auth.login", "auth.setup", "auth.manifest", "auth.service_worker", "auth.robots", "static"}
 
 MAX_FAILED_LOGINS = 5
 LOCK_MINUTES = 15
@@ -157,6 +157,21 @@ def guard():
 
 
 # ---------------------------------------------------------------- installable app (icon + own window)
+
+@bp.route("/robots.txt")
+def robots():
+    """Private business app: ask every search engine to stay out completely."""
+    return current_app.response_class("User-agent: *\nDisallow: /\n", mimetype="text/plain")
+
+
+@bp.after_app_request
+def no_search_engines(resp):
+    resp.headers["X-Robots-Tag"] = "noindex, nofollow, noarchive"
+    resp.headers.setdefault("X-Frame-Options", "DENY")
+    resp.headers.setdefault("X-Content-Type-Options", "nosniff")
+    resp.headers.setdefault("Referrer-Policy", "same-origin")
+    return resp
+
 
 @bp.route("/manifest.webmanifest")
 def manifest():
