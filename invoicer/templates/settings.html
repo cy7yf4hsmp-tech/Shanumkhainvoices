@@ -16,8 +16,11 @@
   </div>
   <div class="row">
     <label>Invoice number prefix<input name="invoice_prefix" value="{{ form.invoice_prefix }}"></label>
-    <label>Next invoice number<input name="next_invoice_no" type="number" min="1" value="{{ form.next_invoice_no }}"></label>
+    <label>Next running number (this financial year)<input name="next_invoice_no" type="number" min="1" value="{{ form.next_invoice_no }}"></label>
+    <label>Default payment due (days)<input name="default_due_days" type="number" min="0" value="{{ form.default_due_days }}"></label>
   </div>
+  <p class="muted small" style="margin-top:-6px">Invoice numbers look like <b>{{ sample }}</b> (prefix / financial year / month / running number).
+    The running number goes up by one for every invoice and starts again at 001 on 1 April.</p>
   <label>Bank / UPI details<textarea name="bank_details" rows="3">{{ form.bank_details }}</textarea></label>
   <label>Terms &amp; conditions<textarea name="terms" rows="3">{{ form.terms }}</textarea></label>
   <div class="actions"><button class="btn primary">Save settings</button></div>

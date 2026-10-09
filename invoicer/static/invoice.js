@@ -109,6 +109,11 @@
     ['name', 'phone', 'address', 'gstin'].forEach(k => {
       document.getElementById('customer_' + k).value = c ? (c[k] || '') : '';
     });
+    // add the city to the bill-to address if the address doesn't already mention it
+    const addr = document.getElementById('customer_address');
+    if (c && c.city && !addr.value.toLowerCase().includes(c.city.toLowerCase())) {
+      addr.value = (addr.value ? addr.value + '\n' : '') + c.city;
+    }
     saveWrap.hidden = !!c;
   });
   saveWrap.hidden = !!custSel.value;
@@ -125,6 +130,20 @@
   billAddr.addEventListener('input', syncShipTo);
   custSel.addEventListener('change', syncShipTo);
   syncShipTo();
+
+  // Payment due (days) -> due date shown under the box
+  const dueDays = document.getElementById('due_days');
+  const invDate = document.getElementById('invoice_date');
+  function showDueDate() {
+    const out = document.getElementById('due-date-text');
+    const d = new Date(invDate.value + 'T00:00:00');
+    if (dueDays.value === '' || isNaN(d)) { out.textContent = '–'; return; }
+    d.setDate(d.getDate() + (parseInt(dueDays.value, 10) || 0));
+    out.textContent = d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+  }
+  dueDays.addEventListener('input', showDueDate);
+  invDate.addEventListener('change', showDueDate);
+  showDueDate();
 
   taxType.addEventListener('change', recalc);
   document.getElementById('add-row').addEventListener('click', () => addRow().querySelector('.product').focus());

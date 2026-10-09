@@ -11,6 +11,31 @@
   <a class="tile" href="{{ url_for('main.dispatch', status='not_dispatched') }}"><span>Waiting for dispatch</span><strong class="{{ 'warn' if stats.to_dispatch }}">{{ stats.to_dispatch }}</strong></a>
 </div>
 
+<section class="card">
+  <div class="card-head"><h2>Stock out</h2><a href="{{ url_for('main.stock_summary', view='out', period='month') }}">View details</a></div>
+  <div class="tiles flat">
+    {% for key, label in [('today', 'Today'), ('week', 'This week'), ('month', 'This month')] %}
+      {% set so = stock_out[key] %}
+      <a class="tile" href="{{ url_for('main.stock_summary', view='out', period=key) }}">
+        <span>{{ label }}{% if key != 'today' %} <small>({{ so.start[8:] }}/{{ so.start[5:7] }} – {{ so.end[8:] }}/{{ so.end[5:7] }})</small>{% endif %}</span>
+        <strong>{{ so.qty|qty }} <small class="muted">units</small></strong>
+        <div class="muted small">{{ so.products }} product{{ '' if so.products == 1 else 's' }} · ₹{{ so.value|inr }}</div>
+      </a>
+    {% endfor %}
+  </div>
+  {% if month_out %}
+  <table>
+    <thead><tr><th>Top products out this month</th><th class="num">Qty out</th><th class="num">Value (selling price)</th></tr></thead>
+    <tbody>
+    {% for r in month_out %}
+      <tr><td><a href="{{ url_for('main.product_detail', pid=r.id) }}">{{ r.name }}</a></td>
+          <td class="num">{{ r.qty|qty }} {{ r.unit }}</td><td class="num">₹{{ r.value|inr }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<p class="muted">Nothing has gone out of stock this month yet.</p>{% endif %}
+</section>
+
 <div class="grid2">
   <section class="card">
     <div class="card-head"><h2>Low stock</h2><a href="{{ url_for('main.products', low=1) }}">View all</a></div>

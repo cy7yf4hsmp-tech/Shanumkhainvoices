@@ -10,8 +10,10 @@ DEFAULT_SETTINGS = {
     "email": "",
     "gstin": "",
     "state": "",
-    "invoice_prefix": "INV-",
+    "invoice_prefix": "SCP",
     "next_invoice_no": "1",
+    "next_invoice_fy": "",
+    "default_due_days": "30",
     "bank_details": "",
     "terms": "Goods once sold will not be taken back.",
 }
@@ -41,6 +43,12 @@ MIGRATIONS = {
         "transport_type": "TEXT DEFAULT ''",
         "vehicle_no": "TEXT DEFAULT ''",
         "dispatch_note": "TEXT DEFAULT ''",
+        "fy": "TEXT",
+        "seq": "INTEGER",
+        "due_days": "INTEGER",
+    },
+    "customers": {
+        "city": "TEXT DEFAULT ''",
     },
 }
 
@@ -55,6 +63,8 @@ def init_db():
                 db.execute(f"ALTER TABLE {table} ADD COLUMN {name} {decl}")
     for key, value in DEFAULT_SETTINGS.items():
         db.execute("INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)", (key, value))
+    # Invoice numbers changed from INV-0001 to SCP/2026-27/10/001; move databases still on the old default prefix.
+    db.execute("UPDATE settings SET value = 'SCP' WHERE key = 'invoice_prefix' AND value = 'INV-'")
     db.commit()
 
 

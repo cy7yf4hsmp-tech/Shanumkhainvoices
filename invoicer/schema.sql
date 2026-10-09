@@ -24,6 +24,7 @@ CREATE TABLE IF NOT EXISTS customers (
     phone      TEXT DEFAULT '',
     email      TEXT DEFAULT '',
     address    TEXT DEFAULT '',
+    city       TEXT DEFAULT '',
     state      TEXT DEFAULT '',
     gstin      TEXT DEFAULT '',
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -32,7 +33,10 @@ CREATE TABLE IF NOT EXISTS customers (
 CREATE TABLE IF NOT EXISTS invoices (
     id               INTEGER PRIMARY KEY AUTOINCREMENT,
     number           TEXT NOT NULL UNIQUE,
+    fy               TEXT,            -- financial year, e.g. 2026-27
+    seq              INTEGER,         -- running number within the financial year
     date             TEXT NOT NULL,
+    due_days         INTEGER,
     due_date         TEXT DEFAULT '',
     customer_id      INTEGER REFERENCES customers(id),
     customer_name    TEXT NOT NULL,

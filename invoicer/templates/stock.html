@@ -1,10 +1,61 @@
 {% extends "base.html" %}
-{% block title %}Stock ledger{% endblock %}
+{% block title %}Stock summary & stock out{% endblock %}
 {% block content %}
 <div class="page-head">
-  <h1>Stock ledger</h1>
-  <div class="actions"><a class="btn" href="{{ url_for('main.stock_export') }}">Export stock CSV</a></div>
+  <h1>Stock summary &amp; stock out</h1>
+  <div class="actions"><a class="btn" href="{{ url_for('main.stock_export') }}">Export current stock (CSV)</a></div>
 </div>
+
+<form class="filters" method="get">
+  <input type="hidden" name="view" value="{{ view }}">
+  <select name="period" onchange="document.getElementById('custom-dates').hidden = this.value !== 'custom'">
+    {% for value, label in [('today', 'Today'), ('week', 'This week'), ('month', 'This month'), ('fy', 'This financial year'), ('custom', 'Choose dates…')] %}
+      <option value="{{ value }}" {{ 'selected' if period == value }}>{{ label }}</option>
+    {% endfor %}
+  </select>
+  <span id="custom-dates" {{ 'hidden' if period != 'custom' }}>
+    <label>From <input type="date" name="from" value="{{ start }}"></label>
+    <label>To <input type="date" name="to" value="{{ end }}"></label>
+  </span>
+  <button class="btn">Show</button>
+  <span class="muted">{{ start }} to {{ end }}</span>
+</form>
+
+<div class="tiles">
+  <div class="tile"><span>Stock in</span><strong class="good">+{{ totals.in_qty|qty }}</strong></div>
+  <div class="tile"><span>Stock out</span><strong class="bad">−{{ totals.out_qty|qty }}</strong></div>
+  <div class="tile"><span>Stock out value (selling price)</span><strong>₹{{ totals.out_value|inr }}</strong></div>
+</div>
+
+{% set q = {'period': period, 'from': start, 'to': end} %}
+<nav class="tabs">
+  <a href="{{ url_for('main.stock_summary', view='summary', **q) }}" class="{{ 'on' if view == 'summary' }}">Stock summary</a>
+  <a href="{{ url_for('main.stock_summary', view='out', **q) }}" class="{{ 'on' if view == 'out' }}">Stock out ({{ stock_out|length }})</a>
+  <a href="{{ url_for('main.stock_summary', view='all', **q) }}" class="{{ 'on' if view == 'all' }}">All stock movements ({{ moves|length }})</a>
+</nav>
+
+{% if view == 'out' %}
+<p class="muted">Every item that left stock in this period: sold on an invoice, or taken out as damaged / own use.</p>
+<table class="card">
+  <thead><tr><th>Date</th><th>Product</th><th class="num">Qty out</th><th>Reason</th><th>Invoice / ref</th><th>Customer / note</th>
+    <th class="num">Value</th><th class="num">Stock left</th></tr></thead>
+  <tbody>
+  {% for m in stock_out %}
+    <tr><td>{{ m.date[:16] }}</td>
+        <td><a href="{{ url_for('main.product_detail', pid=m.product_id) }}">{{ m.product_name }}</a></td>
+        <td class="num bad">{{ (-m.qty)|qty }} {{ m.unit }}</td>
+        <td><span class="badge {{ m.kind }}">{{ 'Sale' if m.kind == 'sale' else 'Stock out' }}</span></td>
+        <td>{% if m.invoice_id %}<a href="{{ url_for('main.invoice_view', iid=m.invoice_id) }}">{{ m.reference }}</a>{% if m.invoice_status == 'cancelled' %} <span class="badge cancelled">cancelled</span>{% endif %}{% else %}{{ m.reference }}{% endif %}</td>
+        <td>{{ m.customer_name or m.note }}</td>
+        <td class="num">₹{{ (-m.qty * m.price)|inr }}</td>
+        <td class="num">{{ m.balance|qty }}</td></tr>
+  {% else %}
+    <tr><td colspan="8" class="muted">No stock went out in this period.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+{% elif view == 'all' %}
 <table class="card">
   <thead><tr><th>Date</th><th>Product</th><th>Type</th><th class="num">Change</th><th class="num">Balance</th><th>Reference</th><th>Note</th></tr></thead>
   <tbody>
@@ -15,8 +66,33 @@
         <td class="num {{ 'good' if m.qty > 0 else 'bad' }}">{{ '+' if m.qty > 0 }}{{ m.qty|qty }} {{ m.unit }}</td>
         <td class="num">{{ m.balance|qty }}</td><td>{{ m.reference }}</td><td>{{ m.note }}</td></tr>
   {% else %}
-    <tr><td colspan="7" class="muted">No stock movements yet.</td></tr>
+    <tr><td colspan="7" class="muted">No stock movements in this period.</td></tr>
   {% endfor %}
   </tbody>
 </table>
+
+{% else %}
+<p class="muted">Opening stock + stock in + returned − stock out = closing stock, for each product in this period.</p>
+<div class="table-scroll card" style="padding:0">
+<table>
+  <thead><tr><th>Product</th><th>UOM</th><th class="num">Opening</th><th class="num">Stock in</th>
+    <th class="num">Returned<br><span class="hint">cancelled invoices</span></th><th class="num">Stock out</th>
+    <th class="num">Closing</th><th class="num">Reorder at</th></tr></thead>
+  <tbody>
+  {% for p in summary %}
+    <tr><td><a href="{{ url_for('main.product_detail', pid=p.id) }}">{{ p.name }}</a>{% if p.sku %} <span class="muted small">{{ p.sku }}</span>{% endif %}</td>
+        <td>{{ p.unit }}</td>
+        <td class="num">{{ p.opening|qty }}</td>
+        <td class="num {{ 'good' if p.qty_in }}">{% if p.qty_in %}+{{ p.qty_in|qty }}{% else %}–{% endif %}</td>
+        <td class="num">{% if p.returned %}+{{ p.returned|qty }}{% else %}–{% endif %}</td>
+        <td class="num {{ 'bad' if p.qty_out }}">{% if p.qty_out %}−{{ p.qty_out|qty }}{% else %}–{% endif %}</td>
+        <td class="num {{ 'bad' if p.closing <= 0 else ('warn' if p.closing <= p.reorder_level) }}"><b>{{ p.closing|qty }}</b></td>
+        <td class="num">{{ p.reorder_level|qty }}</td></tr>
+  {% else %}
+    <tr><td colspan="8" class="muted">No products yet.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endif %}
 {% endblock %}

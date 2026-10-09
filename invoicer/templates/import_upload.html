@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Upload stock file{% endblock %}
+{% block content %}
+<h1>Update stock from a file</h1>
+<form method="post" enctype="multipart/form-data" class="card form">
+  <div class="dropzone">
+    <p><b>Choose a purchase bill, supplier invoice or stock list</b></p>
+    <input type="file" name="file" accept=".pdf,.xlsx,.xlsm,.xls,.docx,.csv" required>
+    <p class="muted small">PDF, Excel (.xlsx / .xls), Word (.docx) or CSV · up to 15 MB</p>
+  </div>
+  <h2 style="margin-top:18px">What should the quantities in the file do?</h2>
+  <label class="check"><input type="radio" name="mode" value="add" checked> <span><b>Add to stock</b>: goods received (purchase bill / supplier invoice)</span></label>
+  <label class="check"><input type="radio" name="mode" value="count"> <span><b>Replace stock</b>: the file is a stock count; set each product's stock to these quantities</span></label>
+  <div class="actions"><button class="btn primary big">Read file</button>
+    <a class="btn" href="{{ url_for('main.products') }}">Cancel</a></div>
+</form>
+<section class="card">
+  <h2>How the file is read</h2>
+  <ul>
+    <li>The file needs a table with an <b>item / product / particulars / description</b> column and a <b>qty / quantity</b> column.
+      Optional columns used when present: <b>code / SKU</b>, <b>HSN</b>, <b>UOM / unit</b>, <b>rate / price</b>.</li>
+    <li>Each row is matched to your products by code first, then by name. You will see a preview and can fix the matches before anything changes.</li>
+    <li>Items not in your product list can be added as new products in the same step.</li>
+    <li>Scanned PDFs (photos of paper) can't be read. Use the PDF from the supplier's software, or the Excel version.</li>
+  </ul>
+</section>
+{% endblock %}

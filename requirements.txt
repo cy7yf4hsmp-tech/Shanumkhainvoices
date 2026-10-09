@@ -1,1 +1,5 @@
 Flask>=3.0
+openpyxl>=3.1      # read Excel .xlsx stock files
+xlrd>=2.0          # read old Excel .xls files
+pdfplumber>=0.11   # read PDF stock files
+python-docx>=1.1   # read Word .docx stock files

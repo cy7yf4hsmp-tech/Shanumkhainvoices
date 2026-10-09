@@ -34,8 +34,9 @@ def invoice_data(**kw):
 
 def test_pages_render(client):
     add_product(client)
-    for url in ["/", "/products", "/products/1", "/stock", "/customers", "/customers/new",
-                "/invoices", "/invoices/new", "/settings", "/stock/export.csv"]:
+    for url in ["/", "/products", "/products/1", "/stock", "/stock?view=out&period=today", "/stock?view=all&period=fy",
+                "/stock?period=custom&from=2026-01-01&to=2026-12-31", "/customers", "/customers/new",
+                "/invoices", "/invoices/new", "/settings", "/stock/export.csv", "/payments", "/products/import"]:
         assert client.get(url).status_code == 200, url
 
 
@@ -51,7 +52,7 @@ def test_invoice_deducts_stock_and_computes_gst(client, app):
     add_product(client)
     resp = client.post("/invoices/new", data=invoice_data(), follow_redirects=True)
     assert resp.status_code == 200
-    assert b"INV-0001" in resp.data
+    assert b"SCP/2026-27/10/001" in resp.data
     assert stock_of(app) == 7
     with app.app_context():
         inv = get_db().execute("SELECT * FROM invoices").fetchone()
@@ -116,7 +117,7 @@ def test_invoice_numbers_increment(client):
     add_product(client)
     client.post("/invoices/new", data=invoice_data(qty=["1"]))
     resp = client.post("/invoices/new", data=invoice_data(qty=["1"]), follow_redirects=True)
-    assert b"INV-0002" in resp.data
+    assert b"SCP/2026-27/10/002" in resp.data
 
 
 def test_formatting_helpers():
@@ -163,14 +164,14 @@ def test_item_name_comes_from_product(client, app):
 def test_printed_invoices_appear_in_dispatch(client, app):
     add_product(client)
     client.post("/invoices/new", data=invoice_data(qty=["1"]))
-    assert b"INV-0001" not in client.get("/dispatch").data
+    assert b"SCP/2026-27/10/001" not in client.get("/dispatch").data
     client.get("/invoices/1/print")
-    assert b"INV-0001" in client.get("/dispatch").data
+    assert b"SCP/2026-27/10/001" in client.get("/dispatch").data
     client.post("/dispatch/1", data={"dispatch_status": "dispatched", "transport_type": "Auto"})
     with app.app_context():
         row = get_db().execute("SELECT dispatch_status, transport_type, dispatch_date FROM invoices").fetchone()
     assert row["dispatch_status"] == "dispatched" and row["transport_type"] == "Auto" and row["dispatch_date"]
-    assert b"INV-0001" not in client.get("/dispatch?status=not_dispatched").data
+    assert b"SCP/2026-27/10/001" not in client.get("/dispatch?status=not_dispatched").data
 
 
 def test_expenses(client, app):
@@ -212,3 +213,168 @@ def test_old_database_is_upgraded(tmp_path):
     with app.app_context():
         cols = {r["name"] for r in get_db().execute("PRAGMA table_info(invoices)")}
     assert {"ship_to_address", "printed_at", "dispatch_status", "transport_type"} <= cols
+
+
+# ---------------------------------------------------------------- invoice numbering, due days, payments
+
+def test_invoice_number_format_and_financial_year(client, app):
+    add_product(client, stock="100")
+    for d in ["2027-03-31", "2027-04-01", "2027-04-15", "2027-05-02"]:
+        client.post("/invoices/new", data=invoice_data(qty=["1"], date=d))
+    with app.app_context():
+        numbers = [r[0] for r in get_db().execute("SELECT number FROM invoices ORDER BY id")]
+    assert numbers == ["SCP/2026-27/03/001", "SCP/2027-28/04/001", "SCP/2027-28/04/002", "SCP/2027-28/05/003"]
+
+
+def test_next_number_can_be_set_in_settings(client, app):
+    from invoicer import services
+    add_product(client)
+    with app.app_context():
+        settings = dict(get_db().execute("SELECT key, value FROM settings").fetchall())
+    settings.update({"next_invoice_no": "46", "default_due_days": "15"})
+    client.post("/settings", data=settings)
+    with app.app_context():
+        fy = services.financial_year(__import__("datetime").date.today())
+        assert services.next_invoice_seq(get_db(), fy) == 46
+
+
+def test_due_days_sets_due_date(client, app):
+    add_product(client)
+    client.post("/invoices/new", data=invoice_data(qty=["1"], date="2026-10-09", due_days="30"))
+    with app.app_context():
+        row = get_db().execute("SELECT due_days, due_date FROM invoices").fetchone()
+    assert (row["due_days"], row["due_date"]) == (30, "2026-11-08")
+
+
+def test_payments_page(client):
+    add_product(client)
+    client.post("/invoices/new", data=invoice_data(qty=["1"], customer_name="Late Payer", due_days="0",
+                                                   date="2026-01-01"))
+    client.post("/invoices/new", data=invoice_data(qty=["1"], customer_name="Good Payer", amount_paid="118"))
+    page = client.get("/payments").data.decode()
+    assert "Late Payer" in page and "Overdue by" in page and "Good Payer" not in page
+    page = client.get("/payments?status=received").data.decode()
+    assert "Good Payer" in page and "Payment received" in page
+    client.post("/invoices/1/pay", data={"amount": "118", "next": "/payments"})
+    assert "Late Payer" not in client.get("/payments").data.decode()
+
+
+def test_customers_have_city(client, app):
+    client.post("/customers/new", data={"name": "Sri Sai Traders", "address": "Main Road", "city": "Guntur",
+                                        "email": "sai@example.com", "phone": "90000 11111"})
+    page = client.get("/customers").data.decode()
+    for text in ["Sri Sai Traders", "Main Road", "Guntur", "sai@example.com", "90000 11111", "Mail ID", "City"]:
+        assert text in page
+    assert "Sri Sai Traders" in client.get("/customers?q=guntur").data.decode()
+
+
+# ---------------------------------------------------------------- stock summary & dashboard stock out
+
+def test_stock_summary_and_dashboard_stock_out(client, app):
+    from datetime import date
+    add_product(client, stock="10")
+    today = date.today().isoformat()
+    client.post("/invoices/new", data=invoice_data(qty=["3"], date=today))
+    client.post("/products/1/stock", data={"action": "out", "qty": "1", "note": "damaged"})
+    client.post("/products/1/stock", data={"action": "in", "qty": "5"})
+    page = client.get("/stock?period=today").data.decode()
+    assert "−4" in page and "+15" in page  # out: 3 sold + 1 damaged; in: 10 opening + 5 purchased (all today)
+    out = client.get("/stock?view=out&period=today").data.decode()
+    assert "damaged" in out and "Ravi Traders" in out
+    dash = client.get("/").data.decode()
+    assert "Stock out" in dash and "This week" in dash and "₹400.00" in dash  # 4 units x ₹100
+
+
+# ---------------------------------------------------------------- uploading stock files
+
+def _xlsx_bytes(rows):
+    import io
+    from openpyxl import Workbook
+    wb = Workbook()
+    ws = wb.active
+    ws.append(["Supplier: ABC Distributors"])
+    for r in rows:
+        ws.append(r)
+    buf = io.BytesIO()
+    wb.save(buf)
+    return buf.getvalue()
+
+
+def _docx_bytes(rows):
+    import io
+    from docx import Document
+    doc = Document()
+    doc.add_paragraph("Purchase bill")
+    table = doc.add_table(rows=0, cols=len(rows[0]))
+    for r in rows:
+        cells = table.add_row().cells
+        for c, v in zip(cells, r):
+            c.text = str(v)
+    buf = io.BytesIO()
+    doc.save(buf)
+    return buf.getvalue()
+
+
+def _pdf_bytes(lines):
+    """A minimal one-page PDF with plain text lines (no table)."""
+    text = "BT /F1 11 Tf 50 780 Td 14 TL " + " ".join(f"({l}) Tj T*" for l in lines) + " ET"
+    objs = ["<< /Type /Catalog /Pages 2 0 R >>", "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+            "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> "
+            "/Contents 5 0 R >>",
+            "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+            f"<< /Length {len(text)} >>\nstream\n{text}\nendstream"]
+    out, offsets = "%PDF-1.4\n", []
+    for i, o in enumerate(objs, 1):
+        offsets.append(len(out))
+        out += f"{i} 0 obj\n{o}\nendobj\n"
+    xref = len(out)
+    out += f"xref\n0 {len(objs) + 1}\n0000000000 65535 f \n" + "".join(f"{o:010d} 00000 n \n" for o in offsets)
+    out += f"trailer\n<< /Size {len(objs) + 1} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF"
+    return out.encode("latin-1")
+
+
+def test_importer_reads_all_file_types():
+    from invoicer.importer import read_items
+    header = ["S.No", "Item Code", "Description of Goods", "HSN", "Qty", "UOM", "Rate", "Amount"]
+    rows = [header, [1, "W1", "Widget", "8471", 12, "pcs", 100, 1200], [2, "", "Gadget Pro", "", "5", "box", "250", "1250"],
+            ["", "", "Total", "", 17, "", "", 2450]]
+    for name, data in [("bill.xlsx", _xlsx_bytes(rows)), ("bill.docx", _docx_bytes(rows)),
+                       ("bill.csv", "\n".join(",".join(str(c) for c in r) for r in rows).encode())]:
+        items, notes = read_items(name, data)
+        assert [(i["name"], i["qty"], i["sku"]) for i in items] == [("Widget", 12, "W1"), ("Gadget Pro", 5, "")], name
+        assert items[0]["price"] == 100 and items[1]["unit"] == "box"
+    items, notes = read_items("bill.pdf", _pdf_bytes(["ABC Distributors", "1 Widget 12 pcs 100.00",
+                                                      "2 LED Bulb 9W 30 pcs 85.00"]))
+    assert [(i["name"], i["qty"]) for i in items] == [("Widget", 12), ("LED Bulb 9W", 30)]
+    assert notes  # line-by-line reading is flagged for checking
+
+
+def test_importer_rejects_bad_files():
+    import pytest as _pytest
+    from invoicer.importer import ImportError_, read_items
+    for name, data, msg in [("old.doc", b"x", "Save As"), ("pic.png", b"x", "Please upload"),
+                            ("empty.csv", b"just,some\nwords,here", "No items found")]:
+        with _pytest.raises(ImportError_, match=msg):
+            read_items(name, data)
+
+
+def test_upload_preview_and_apply(client, app):
+    import io
+    add_product(client, stock="10")  # Widget, code W1
+    rows = [["Item Code", "Particulars", "Qty", "Rate"], ["W1", "Widget (blue)", 12, 100], ["", "Brand New Thing", 4, 55]]
+    resp = client.post("/products/import", data={"file": (io.BytesIO(_xlsx_bytes(rows)), "bill.xlsx"), "mode": "add"},
+                       content_type="multipart/form-data")
+    page = resp.data.decode()
+    assert resp.status_code == 200 and "by code" in page and "not in products" in page
+    assert stock_of(app) == 10  # preview only, nothing changed yet
+    client.post("/products/import/apply", data={
+        "mode": "add", "reference": "bill.xlsx", "target": ["1", "new"], "name": ["Widget (blue)", "Brand New Thing"],
+        "sku": ["W1", ""], "hsn": ["", ""], "unit": ["", "pcs"], "price": ["100", "55"], "qty": ["12", "4"]})
+    assert stock_of(app) == 22
+    with app.app_context():
+        new = get_db().execute("SELECT * FROM products WHERE name = 'Brand New Thing'").fetchone()
+    assert new["stock"] == 4 and new["price"] == 55
+    # "replace stock" mode sets the count
+    client.post("/products/import/apply", data={"mode": "count", "target": ["1"], "name": ["Widget"], "sku": [""],
+                                                "hsn": [""], "unit": [""], "price": [""], "qty": ["7"]})
+    assert stock_of(app) == 7

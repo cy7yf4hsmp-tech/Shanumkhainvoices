@@ -6,10 +6,11 @@
   <div class="row">
     <label>Name *<input name="name" value="{{ customer.name or '' }}" required autofocus></label>
     <label>Phone<input name="phone" value="{{ customer.phone or '' }}"></label>
-    <label>Email<input name="email" type="email" value="{{ customer.email or '' }}"></label>
+    <label>Mail ID<input name="email" type="email" value="{{ customer.email or '' }}"></label>
   </div>
   <label>Address<textarea name="address" rows="3">{{ customer.address or '' }}</textarea></label>
   <div class="row">
+    <label>City<input name="city" value="{{ customer.city or '' }}"></label>
     <label>State<input name="state" value="{{ customer.state or '' }}"></label>
     <label>GSTIN<input name="gstin" value="{{ customer.gstin or '' }}" maxlength="15" style="text-transform:uppercase"></label>
   </div>

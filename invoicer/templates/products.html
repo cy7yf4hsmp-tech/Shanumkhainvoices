@@ -2,9 +2,10 @@
 {% block title %}Products{% endblock %}
 {% block content %}
 <div class="page-head">
-  <h1>Products &amp; stock</h1>
+  <h1>Products &amp; stock <small class="muted">({{ products|length }})</small></h1>
   <div class="actions">
     <a class="btn" href="{{ url_for('main.stock_export') }}">Export CSV</a>
+    <a class="btn" href="{{ url_for('main.product_import') }}">⇪ Upload stock file (PDF / Excel / Word)</a>
     <a class="btn primary" href="{{ url_for('main.product_new') }}">+ Add product</a>
   </div>
 </div>

@@ -6,7 +6,8 @@
   <div class="actions"><a class="btn" href="{{ url_for('main.customer_form', cid=customer.id) }}">Edit</a></div>
 </div>
 <section class="card">
-  <p>{{ customer.address }}{% if customer.state %}, {{ customer.state }}{% endif %}</p>
+  <p class="pre">{{ customer.address }}</p>
+  <p>{{ customer.city }}{% if customer.city and customer.state %}, {% endif %}{{ customer.state }}</p>
   <p class="muted">{% if customer.phone %}Phone: {{ customer.phone }} · {% endif %}{% if customer.email %}{{ customer.email }} · {% endif %}{% if customer.gstin %}GSTIN: {{ customer.gstin }}{% endif %}</p>
 </section>
 <h2>Invoices</h2>

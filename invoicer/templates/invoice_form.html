@@ -1,7 +1,10 @@
 {% extends "base.html" %}
 {% block title %}New invoice{% endblock %}
 {% block content %}
-<h1>New invoice</h1>
+<div class="page-head">
+  <h1>New invoice</h1>
+  <span class="muted">Invoice no. will be <b>{{ next_number }}</b></span>
+</div>
 <form method="post" id="invoice-form" class="form">
   <section class="card">
     <h2>Customer</h2>
@@ -35,8 +38,11 @@
 
   <section class="card">
     <div class="row">
-      <label>Invoice date<input type="date" name="date" value="{{ form.date or today }}"></label>
-      <label>Due date<input type="date" name="due_date" value="{{ form.due_date or '' }}"></label>
+      <label>Invoice date<input type="date" name="date" id="invoice_date" value="{{ form.date or today }}"></label>
+      <label>Payment due (days)
+        <input type="number" name="due_days" id="due_days" min="0" step="1" value="{{ form.due_days if form.due_days is defined else settings.default_due_days }}" placeholder="e.g. 30">
+        <small class="muted">Due date: <b id="due-date-text">–</b></small>
+      </label>
       <label>GST type
         <select name="tax_type" id="tax_type">
           <option value="intra" {{ 'selected' if form.tax_type != 'inter' }}>Within state (CGST + SGST)</option>

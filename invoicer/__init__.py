@@ -10,6 +10,7 @@ def create_app(test_config=None):
     app = Flask(__name__, instance_relative_config=True)
     app.config.from_mapping(
         SECRET_KEY=os.environ.get("SECRET_KEY", "change-me-in-production"),
+        MAX_CONTENT_LENGTH=15 * 1024 * 1024,  # uploads (stock files) up to 15 MB
         DATABASE=os.environ.get("INVOICER_DB", os.path.join(app.instance_path, "invoicer.sqlite3")),
     )
     if test_config:

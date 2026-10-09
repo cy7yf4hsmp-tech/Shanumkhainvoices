@@ -1,11 +1,11 @@
 import csv
 import io
 import sqlite3
-from datetime import date
+from datetime import date, timedelta
 
 from flask import Blueprint, Response, abort, flash, redirect, render_template, request, url_for
 
-from . import services
+from . import importer, services
 from .db import get_db, get_settings, save_settings
 from .services import StockError
 
@@ -51,7 +51,20 @@ def dashboard():
         "SELECT * FROM products WHERE active = 1 AND stock <= reorder_level ORDER BY stock - reorder_level, name"
     ).fetchall()
     recent = db.execute("SELECT * FROM invoices ORDER BY id DESC LIMIT 8").fetchall()
-    return render_template("dashboard.html", stats=stats, low_stock=low_stock, recent=recent)
+    d = date.today()
+    periods = {
+        "today": (d, d),
+        "week": (d - timedelta(days=d.weekday()), d),   # week starts Monday
+        "month": (d.replace(day=1), d),
+    }
+    stock_out = {}
+    for key, (start, end) in periods.items():
+        rows = stock_out_by_product(db, start.isoformat(), end.isoformat())
+        stock_out[key] = {"qty": sum(r["qty"] for r in rows), "value": sum(r["value"] for r in rows),
+                          "products": len(rows), "start": start.isoformat(), "end": end.isoformat()}
+    month_out = stock_out_by_product(db, periods["month"][0].isoformat(), d.isoformat())[:10]
+    return render_template("dashboard.html", stats=stats, low_stock=low_stock, recent=recent,
+                           stock_out=stock_out, month_out=month_out)
 
 
 # ---------------------------------------------------------------- products & stock
@@ -182,6 +195,79 @@ def product_stock(pid):
     return redirect(url_for("main.product_detail", pid=pid))
 
 
+@bp.route("/products/import", methods=["GET", "POST"])
+def product_import():
+    if request.method == "GET":
+        return render_template("import_upload.html")
+    upload = request.files.get("file")
+    if not upload or not upload.filename:
+        flash("Choose a file to upload", "error")
+        return render_template("import_upload.html"), 400
+    try:
+        items, notes = importer.read_items(upload.filename, upload.read())
+    except importer.ImportError_ as exc:
+        flash(str(exc), "error")
+        return render_template("import_upload.html"), 400
+    products = [dict(r) for r in get_db().execute(
+        "SELECT id, sku, name, unit, stock FROM products WHERE active = 1 ORDER BY name")]
+    for item in items:
+        item["product_id"], item["match"] = importer.match_product(item, products)
+    for note in notes:
+        flash(note, "error")
+    return render_template("import_preview.html", items=items, products=products, filename=upload.filename,
+                           mode=request.form.get("mode", "add"))
+
+
+@bp.route("/products/import/apply", methods=["POST"])
+def product_import_apply():
+    f = request.form
+    db = get_db()
+    mode = "count" if f.get("mode") == "count" else "add"
+    reference = f.get("reference", "").strip()[:60]
+    added = updated = skipped = 0
+    try:
+        for target, name, sku, hsn, unit, price, qty in zip(
+                f.getlist("target"), f.getlist("name"), f.getlist("sku"), f.getlist("hsn"), f.getlist("unit"),
+                f.getlist("price"), f.getlist("qty")):
+            qty = _float(qty, None)
+            if target == "skip" or qty is None or not name.strip():
+                skipped += 1
+                continue
+            if target == "new":
+                sku = sku.strip() or None
+                if sku and db.execute("SELECT 1 FROM products WHERE sku = ?", (sku,)).fetchone():
+                    sku = None  # code already used by another product: keep the product, drop the duplicate code
+                pid = db.execute(
+                    "INSERT INTO products (sku, name, hsn, unit, price, cost, gst_rate) VALUES (?, ?, ?, ?, ?, ?, 18)",
+                    (sku, name.strip(), hsn.strip(), unit.strip() or "pcs", _float(price), _float(price))).lastrowid
+                if qty:
+                    services.record_movement(db, pid, qty, "opening", reference, "Added from uploaded file",
+                                             allow_negative=True)
+                added += 1
+                continue
+            pid = _int_or_none(target)
+            product = db.execute("SELECT stock FROM products WHERE id = ?", (pid,)).fetchone()
+            if product is None:
+                skipped += 1
+                continue
+            if mode == "count":
+                delta = qty - product["stock"]
+                if delta:
+                    services.record_movement(db, pid, delta, "adjustment", reference, "Stock count from uploaded file",
+                                             allow_negative=True)
+            elif qty:
+                services.record_movement(db, pid, qty, "purchase", reference, "From uploaded file",
+                                         allow_negative=True)
+            updated += 1
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+    flash(f"Stock updated: {updated} product(s) updated, {added} new product(s) added, {skipped} row(s) skipped",
+          "success")
+    return redirect(url_for("main.products"))
+
+
 @bp.route("/products/<int:pid>/delete", methods=["POST"])
 def product_delete(pid):
     _get_product(pid)
@@ -192,13 +278,83 @@ def product_delete(pid):
     return redirect(url_for("main.products"))
 
 
+OUT_KINDS = ("sale", "adjustment")
+
+
+def stock_out_by_product(db, start, end):
+    """Goods that left stock (sales + stock-out adjustments) between two dates, per product.
+
+    Value is at the product's current selling price (excluding GST).
+    """
+    return db.execute(
+        "SELECT p.id, p.name, p.sku, p.unit, SUM(-m.qty) AS qty, SUM(-m.qty * p.price) AS value "
+        "FROM stock_movements m JOIN products p ON p.id = m.product_id "
+        "WHERE m.qty < 0 AND m.kind IN ('sale', 'adjustment') AND substr(m.date, 1, 10) BETWEEN ? AND ? "
+        "GROUP BY p.id ORDER BY qty DESC, p.name", (start, end)).fetchall()
+
+
+def _period_from_args():
+    """Resolve ?period=today|week|month|fy|custom (&from=&to=) into (key, start, end) ISO dates."""
+    d = date.today()
+    period = request.args.get("period", "month")
+    if period == "today":
+        start = d
+    elif period == "week":
+        start = d - timedelta(days=d.weekday())
+    elif period == "fy":
+        start = date(d.year if d.month >= 4 else d.year - 1, 4, 1)
+    elif period == "custom":
+        try:
+            start = date.fromisoformat(request.args.get("from", ""))
+            end = date.fromisoformat(request.args.get("to", "") or d.isoformat())
+            return period, start.isoformat(), end.isoformat()
+        except ValueError:
+            period, start = "month", d.replace(day=1)
+    else:
+        period, start = "month", d.replace(day=1)
+    return period, start.isoformat(), d.isoformat()
+
+
 @bp.route("/stock")
-def stock_ledger():
-    rows = get_db().execute(
-        "SELECT m.*, p.name AS product_name, p.unit FROM stock_movements m "
-        "JOIN products p ON p.id = m.product_id ORDER BY m.id DESC LIMIT 300"
-    ).fetchall()
-    return render_template("stock.html", moves=rows)
+def stock_summary():
+    db = get_db()
+    view = request.args.get("view", "summary")
+    period, start, end = _period_from_args()
+
+    # Opening = current stock minus everything that moved since the start date; closing likewise from the end date.
+    summary = db.execute(
+        "SELECT p.id, p.name, p.sku, p.unit, p.stock, p.reorder_level, p.price, "
+        "  p.stock - COALESCE(SUM(CASE WHEN substr(m.date,1,10) >= :start THEN m.qty END), 0) AS opening, "
+        "  COALESCE(SUM(CASE WHEN substr(m.date,1,10) BETWEEN :start AND :end AND m.qty > 0 "
+        "                    AND m.kind != 'cancel' THEN m.qty END), 0) AS qty_in, "
+        "  COALESCE(SUM(CASE WHEN substr(m.date,1,10) BETWEEN :start AND :end AND m.kind = 'cancel' "
+        "                    THEN m.qty END), 0) AS returned, "
+        "  COALESCE(SUM(CASE WHEN substr(m.date,1,10) BETWEEN :start AND :end AND m.qty < 0 "
+        "                    THEN -m.qty END), 0) AS qty_out, "
+        "  p.stock - COALESCE(SUM(CASE WHEN substr(m.date,1,10) > :end THEN m.qty END), 0) AS closing "
+        "FROM products p LEFT JOIN stock_movements m ON m.product_id = p.id "
+        "WHERE p.active = 1 GROUP BY p.id ORDER BY p.name", {"start": start, "end": end}).fetchall()
+
+    stock_out = db.execute(
+        "SELECT m.*, p.name AS product_name, p.unit, p.price, i.id AS invoice_id, i.customer_name, "
+        "  i.status AS invoice_status "
+        "FROM stock_movements m JOIN products p ON p.id = m.product_id "
+        "LEFT JOIN invoices i ON m.kind = 'sale' AND i.number = m.reference "
+        "WHERE m.qty < 0 AND substr(m.date,1,10) BETWEEN ? AND ? ORDER BY m.date DESC, m.id DESC",
+        (start, end)).fetchall()
+
+    moves = db.execute(
+        "SELECT m.*, p.name AS product_name, p.unit FROM stock_movements m JOIN products p ON p.id = m.product_id "
+        "WHERE substr(m.date,1,10) BETWEEN ? AND ? ORDER BY m.date DESC, m.id DESC LIMIT 1000",
+        (start, end)).fetchall()
+
+    totals = {
+        "out_qty": sum(r["qty_out"] for r in summary),
+        "out_value": sum(-m["qty"] * m["price"] for m in stock_out),
+        "in_qty": sum(r["qty_in"] for r in summary),
+    }
+    return render_template("stock.html", view=view, period=period, start=start, end=end, summary=summary,
+                           stock_out=stock_out, moves=moves, totals=totals)
 
 
 @bp.route("/stock/export.csv")
@@ -216,7 +372,7 @@ def stock_export():
 
 # ---------------------------------------------------------------- customers
 
-CUSTOMER_FIELDS = ("name", "phone", "email", "address", "state", "gstin")
+CUSTOMER_FIELDS = ("name", "phone", "email", "address", "city", "state", "gstin")
 
 
 @bp.route("/customers")
@@ -227,8 +383,8 @@ def customers():
            " AS due FROM customers c LEFT JOIN invoices i ON i.customer_id = c.id")
     args = []
     if q:
-        sql += " WHERE c.name LIKE ? OR c.phone LIKE ? OR c.gstin LIKE ?"
-        args = [f"%{q}%"] * 3
+        sql += " WHERE c.name LIKE ? OR c.phone LIKE ? OR c.gstin LIKE ? OR c.city LIKE ? OR c.email LIKE ?"
+        args = [f"%{q}%"] * 5
     rows = db.execute(sql + " GROUP BY c.id ORDER BY c.name", args).fetchall()
     return render_template("customers.html", customers=rows, q=q)
 
@@ -249,10 +405,10 @@ def customer_form(cid=None):
             return render_template("customer_form.html", customer=data, cid=cid)
         if cid:
             db.execute("UPDATE customers SET name=:name, phone=:phone, email=:email, address=:address, "
-                       "state=:state, gstin=:gstin WHERE id=:id", data | {"id": cid})
+                       "city=:city, state=:state, gstin=:gstin WHERE id=:id", data | {"id": cid})
         else:
-            db.execute("INSERT INTO customers (name, phone, email, address, state, gstin) "
-                       "VALUES (:name, :phone, :email, :address, :state, :gstin)", data)
+            db.execute("INSERT INTO customers (name, phone, email, address, city, state, gstin) "
+                       "VALUES (:name, :phone, :email, :address, :city, :state, :gstin)", data)
         db.commit()
         flash("Customer saved", "success")
         return redirect(url_for("main.customers"))
@@ -301,8 +457,9 @@ def _invoice_form_context(form=None):
     products = [dict(r) for r in db.execute(
         "SELECT id, sku, name, hsn, unit, price, gst_rate, stock FROM products WHERE active = 1 ORDER BY name")]
     customers = [dict(r) for r in db.execute(
-        "SELECT id, name, phone, address, state, gstin FROM customers ORDER BY name")]
-    return {"products": products, "customers": customers, "form": form or {}, "today": date.today().isoformat()}
+        "SELECT id, name, phone, address, city, state, gstin FROM customers ORDER BY name")]
+    return {"products": products, "customers": customers, "form": form or {}, "today": date.today().isoformat(),
+            "next_number": services.next_invoice_number(db, date.today())[0]}
 
 
 @bp.route("/invoices/new", methods=["GET", "POST"])
@@ -346,7 +503,7 @@ def invoice_new():
         invoice_id = services.create_invoice(
             db, customer, lines,
             tax_type="inter" if f.get("tax_type") == "inter" else "intra",
-            invoice_date=f.get("date") or None, due_date=f.get("due_date", ""),
+            invoice_date=f.get("date") or None, due_days=_int_or_none(f.get("due_days")),
             notes=f.get("notes", "").strip(), amount_paid=_float(f.get("amount_paid")),
         )
     except (StockError, ValueError) as exc:
@@ -395,7 +552,8 @@ def invoice_pay(iid):
         flash("Payment recorded", "success")
     except ValueError as exc:
         flash(str(exc), "error")
-    return redirect(url_for("main.invoice_view", iid=iid))
+    nxt = request.form.get("next", "")
+    return redirect(nxt if nxt.startswith("/") else url_for("main.invoice_view", iid=iid))
 
 
 @bp.route("/invoices/<int:iid>/cancel", methods=["POST"])
@@ -533,6 +691,46 @@ def expense_delete(eid):
     db.commit()
     flash("Expense deleted", "success")
     return redirect(request.referrer or url_for("main.expenses"))
+
+
+# ---------------------------------------------------------------- payments
+
+@bp.route("/payments")
+def payments():
+    status = request.args.get("status", "pending")
+    q = request.args.get("q", "").strip()
+    sql, args = "SELECT * FROM invoices WHERE status != 'cancelled'", []
+    if status == "pending":
+        sql += " AND status IN ('unpaid', 'partial')"
+    elif status == "received":
+        sql += " AND status = 'paid'"
+    elif status == "overdue":
+        sql += " AND status IN ('unpaid', 'partial') AND due_date != '' AND due_date < ?"
+        args.append(date.today().isoformat())
+    if q:
+        sql += " AND (customer_name LIKE ? OR number LIKE ?)"
+        args += [f"%{q}%"] * 2
+    # pending first, then nearest due date
+    rows = get_db().execute(
+        sql + " ORDER BY status = 'paid', CASE WHEN due_date = '' OR due_date IS NULL THEN 1 ELSE 0 END, "
+              "due_date, id DESC LIMIT 500", args).fetchall()
+    today = date.today()
+    items = []
+    for r in rows:
+        days_left = None
+        if r["due_date"]:
+            try:
+                days_left = (date.fromisoformat(r["due_date"]) - today).days
+            except ValueError:
+                pass
+        items.append({"inv": r, "due": r["total"] - r["amount_paid"], "days_left": days_left})
+    open_items = [i for i in items if i["inv"]["status"] != "paid"]
+    totals = {
+        "pending": sum(i["due"] for i in open_items),
+        "overdue": sum(i["due"] for i in open_items if i["days_left"] is not None and i["days_left"] < 0),
+        "due_week": sum(i["due"] for i in open_items if i["days_left"] is not None and 0 <= i["days_left"] <= 7),
+    }
+    return render_template("payments.html", items=items, status=status, q=q, totals=totals)
 
 
 # ---------------------------------------------------------------- loans
@@ -688,10 +886,14 @@ def loan_delete(lid):
 def settings_page():
     if request.method == "POST":
         values = {k: v.strip() for k, v in request.form.items()}
-        if not values.get("next_invoice_no", "1").isdigit():
-            flash("Next invoice number must be a whole number", "error")
+        if not values.get("next_invoice_no", "1").isdigit() or not values.get("default_due_days", "0").isdigit():
+            flash("Next invoice number and payment due days must be whole numbers", "error")
             return render_template("settings.html", form=values)
+        values["next_invoice_fy"] = services.financial_year(date.today())
         save_settings(values)
         flash("Settings saved", "success")
         return redirect(url_for("main.settings_page"))
-    return render_template("settings.html", form=get_settings())
+    form = get_settings()
+    db = get_db()
+    form["next_invoice_no"] = str(services.next_invoice_seq(db, services.financial_year(date.today())))
+    return render_template("settings.html", form=form, sample=services.next_invoice_number(db, date.today())[0])

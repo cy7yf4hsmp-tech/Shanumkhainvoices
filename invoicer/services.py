@@ -1,5 +1,5 @@
 """Business logic for stock and invoices. All functions take an open sqlite3 connection."""
-from datetime import date
+from datetime import date, datetime, timedelta
 
 from .utils import r2
 
@@ -8,8 +8,12 @@ class StockError(ValueError):
     pass
 
 
-def record_movement(db, product_id, qty, kind, reference="", note="", allow_negative=False):
-    """Change a product's stock by `qty` (signed) and log the movement."""
+def now_local():
+    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+
+def record_movement(db, product_id, qty, kind, reference="", note="", allow_negative=False, when=None):
+    """Change a product's stock by `qty` (signed) and log the movement (dated in local time)."""
     product = db.execute("SELECT id, name, stock FROM products WHERE id = ?", (product_id,)).fetchone()
     if product is None:
         raise StockError(f"Product #{product_id} not found")
@@ -20,8 +24,9 @@ def record_movement(db, product_id, qty, kind, reference="", note="", allow_nega
         )
     db.execute("UPDATE products SET stock = ? WHERE id = ?", (balance, product_id))
     db.execute(
-        "INSERT INTO stock_movements (product_id, kind, qty, balance, reference, note) VALUES (?, ?, ?, ?, ?, ?)",
-        (product_id, kind, qty, balance, reference, note),
+        "INSERT INTO stock_movements (product_id, date, kind, qty, balance, reference, note) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?)",
+        (product_id, when or now_local(), kind, qty, balance, reference, note),
     )
     return balance
 
@@ -52,17 +57,48 @@ def calculate_lines(lines):
     }
 
 
-def next_invoice_number(db):
+def financial_year(d):
+    """Indian financial year (April to March) for a date, e.g. 2026-10-09 -> '2026-27'."""
+    start = d.year if d.month >= 4 else d.year - 1
+    return f"{start}-{(start + 1) % 100:02d}"
+
+
+def _parse_date(value):
+    if isinstance(value, date):
+        return value
+    try:
+        return date.fromisoformat(str(value)[:10])
+    except ValueError:
+        return date.today()
+
+
+def next_invoice_seq(db, fy):
+    """Next running number in a financial year. Settings can raise it (e.g. when starting mid-year)."""
     settings = {r["key"]: r["value"] for r in db.execute("SELECT key, value FROM settings")}
-    prefix = settings.get("invoice_prefix", "INV-")
-    n = int(settings.get("next_invoice_no", "1") or 1)
-    while db.execute("SELECT 1 FROM invoices WHERE number = ?", (f"{prefix}{n:04d}",)).fetchone():
-        n += 1
-    return f"{prefix}{n:04d}", n
+    last = db.execute("SELECT MAX(seq) FROM invoices WHERE fy = ?", (fy,)).fetchone()[0] or 0
+    seq = last + 1
+    if settings.get("next_invoice_fy") == fy:
+        seq = max(seq, int(settings.get("next_invoice_no") or 1))
+    return seq
+
+
+def next_invoice_number(db, invoice_date=None):
+    """Invoice number like SCP/2026-27/10/001: prefix / financial year / month / running number.
+
+    The running number continues through the financial year and restarts at 001 every April.
+    """
+    d = _parse_date(invoice_date or date.today())
+    settings = {r["key"]: r["value"] for r in db.execute("SELECT key, value FROM settings")}
+    prefix = (settings.get("invoice_prefix") or "SCP").strip().rstrip("/")
+    fy = financial_year(d)
+    seq = next_invoice_seq(db, fy)
+    while db.execute("SELECT 1 FROM invoices WHERE number = ?", (f"{prefix}/{fy}/{d.month:02d}/{seq:03d}",)).fetchone():
+        seq += 1
+    return f"{prefix}/{fy}/{d.month:02d}/{seq:03d}", fy, seq
 
 
 def create_invoice(db, customer, lines, tax_type="intra", invoice_date=None, due_date="", notes="",
-                   amount_paid=0.0):
+                   amount_paid=0.0, due_days=None):
     """Create an invoice, deduct stock for product lines. Raises StockError/ValueError on bad input.
 
     customer: dict(id?, name, address, phone, gstin, ship_to_address)
@@ -80,17 +116,22 @@ def create_invoice(db, customer, lines, tax_type="intra", invoice_date=None, due
             raise ValueError(f"Price cannot be negative for '{l['description']}'")
 
     computed, totals = calculate_lines(lines)
-    number, n = next_invoice_number(db)
+    inv_date = _parse_date(invoice_date or date.today())
+    if due_days is not None:
+        if due_days < 0:
+            raise ValueError("Payment due days cannot be negative")
+        due_date = (inv_date + timedelta(days=due_days)).isoformat()
+    number, fy, seq = next_invoice_number(db, inv_date)
     amount_paid = r2(min(max(amount_paid, 0), totals["total"]))
     status = payment_status(amount_paid, totals["total"])
 
     try:
         cur = db.execute(
-            """INSERT INTO invoices (number, date, due_date, customer_id, customer_name, customer_address,
+            """INSERT INTO invoices (number, fy, seq, date, due_days, due_date, customer_id, customer_name, customer_address,
                    customer_phone, customer_gstin, ship_to_address, tax_type, subtotal, discount, tax_total, round_off, total,
                    amount_paid, status, notes)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            (number, invoice_date or date.today().isoformat(), due_date, customer.get("id"),
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (number, fy, seq, inv_date.isoformat(), due_days, due_date, customer.get("id"),
              customer["name"].strip(), customer.get("address", ""), customer.get("phone", ""),
              customer.get("gstin", ""), customer.get("ship_to_address") or customer.get("address", ""), tax_type, totals["subtotal"], totals["discount"],
              totals["tax_total"], totals["round_off"], totals["total"], amount_paid, status, notes),
@@ -105,8 +146,8 @@ def create_invoice(db, customer, lines, tax_type="intra", invoice_date=None, due
                  l["qty"], l["price"], l.get("discount_pct", 0), l["gst_rate"], l["taxable"], l["tax"]),
             )
             if l.get("product_id"):
-                record_movement(db, l["product_id"], -l["qty"], "sale", reference=number)
-        db.execute("UPDATE settings SET value = ? WHERE key = 'next_invoice_no'", (str(n + 1),))
+                record_movement(db, l["product_id"], -l["qty"], "sale", reference=number,
+                                when=f"{inv_date.isoformat()} {now_local()[11:]}")
         db.commit()
     except Exception:
         db.rollback()

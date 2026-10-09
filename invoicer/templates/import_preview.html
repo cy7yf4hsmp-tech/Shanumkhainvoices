@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}Check stock from file{% endblock %}
+{% block content %}
+<h1>Check before updating stock</h1>
+<p class="muted">Read <b>{{ items|length }}</b> row(s) from <b>{{ filename }}</b>. Check each match and quantity, then click <b>Update stock</b>.
+  Nothing has changed yet.</p>
+<form method="post" action="{{ url_for('main.product_import_apply') }}" class="form">
+  <section class="card">
+    <div class="row">
+      <label>Quantities in the file should
+        <select name="mode">
+          <option value="add" {{ 'selected' if mode != 'count' }}>Add to stock (purchase / goods received)</option>
+          <option value="count" {{ 'selected' if mode == 'count' }}>Replace stock (set stock to these quantities)</option>
+        </select>
+      </label>
+      <label>Reference (bill no. / file)<input name="reference" value="{{ filename[:60] }}"></label>
+    </div>
+  </section>
+  <div class="table-scroll card" style="padding:0">
+  <table class="preview">
+    <thead><tr><th>#</th><th>Item in file</th><th>Code</th><th>Match</th><th style="width:30%">Update this product</th>
+      <th class="num">Qty</th><th>UOM</th><th class="num">Rate</th></tr></thead>
+    <tbody>
+    {% for it in items %}
+      <tr>
+        <td>{{ loop.index }}</td>
+        <td>{{ it.name }}{% if it.check %} <span class="warn small">check</span>{% endif %}
+          <input type="hidden" name="name" value="{{ it.name }}">
+          <input type="hidden" name="hsn" value="{{ it.hsn }}"></td>
+        <td>{{ it.sku }}<input type="hidden" name="sku" value="{{ it.sku }}"></td>
+        <td class="small">
+          {% if it.match == 'code' %}<span class="match-code">✔ by code</span>
+          {% elif it.match == 'name' %}<span class="match-name">✔ by name</span>
+          {% elif it.match == 'similar' %}<span class="match-similar">≈ similar name, check</span>
+          {% else %}<span class="match-none">not in products</span>{% endif %}
+        </td>
+        <td>
+          <select name="target" class="target">
+            <option value="new" {{ 'selected' if not it.product_id }}>+ Add as new product</option>
+            <option value="skip">✕ Skip this row</option>
+            <optgroup label="Your products">
+            {% for p in products %}<option value="{{ p.id }}" {{ 'selected' if it.product_id == p.id }}>{{ p.name }}{% if p.sku %} ({{ p.sku }}){% endif %} · in stock {{ p.stock|qty }}</option>{% endfor %}
+            </optgroup>
+          </select>
+        </td>
+        <td class="num"><input type="number" name="qty" step="any" value="{{ it.qty|qty }}" style="width:90px;text-align:right"></td>
+        <td><input name="unit" value="{{ it.unit }}" size="4"></td>
+        <td class="num"><input type="number" name="price" step="0.01" value="{{ it.price|qty if it.price is not none else '' }}" style="width:100px;text-align:right"></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  <div class="actions">
+    <button class="btn primary big">Update stock</button>
+    <a class="btn" href="{{ url_for('main.product_import') }}">Upload a different file</a>
+  </div>
+</form>
+{% endblock %}
+{% block scripts %}
+<script>
+  document.querySelectorAll('select.target').forEach(sel => {
+    const mark = () => sel.closest('tr').classList.toggle('skip', sel.value === 'skip');
+    sel.addEventListener('change', mark); mark();
+  });
+</script>
+{% endblock %}

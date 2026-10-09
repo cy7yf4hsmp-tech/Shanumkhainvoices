@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}Payments{% endblock %}
+{% block content %}
+<h1>Payments</h1>
+<div class="tiles">
+  <a class="tile" href="{{ url_for('main.payments', status='pending') }}"><span>Pending (to receive)</span><strong class="{{ 'warn' if totals.pending }}">₹{{ totals.pending|inr }}</strong></a>
+  <a class="tile" href="{{ url_for('main.payments', status='overdue') }}"><span>Overdue</span><strong class="{{ 'bad' if totals.overdue }}">₹{{ totals.overdue|inr }}</strong></a>
+  <div class="tile"><span>Due in next 7 days</span><strong>₹{{ totals.due_week|inr }}</strong></div>
+</div>
+<form class="filters" method="get">
+  <input name="q" value="{{ q }}" placeholder="Customer or invoice no.">
+  <select name="status">
+    {% for value, label in [('pending', 'Payment pending'), ('overdue', 'Overdue only'), ('received', 'Payment received'), ('all', 'All')] %}
+      <option value="{{ value }}" {{ 'selected' if status == value }}>{{ label }}</option>
+    {% endfor %}
+  </select>
+  <button class="btn">Show</button>
+</form>
+<div class="table-scroll card" style="padding:0">
+<table>
+  <thead><tr><th>Customer name</th><th>Invoice no.</th><th class="num">Invoice amount</th><th class="num">Amount due</th>
+    <th>Status</th><th>Due date</th><th>Days remaining</th><th>Record payment</th></tr></thead>
+  <tbody>
+  {% for it in items %}
+    {% set inv = it.inv %}
+    <tr>
+      <td>{% if inv.customer_id %}<a href="{{ url_for('main.customer_detail', cid=inv.customer_id) }}">{{ inv.customer_name }}</a>{% else %}{{ inv.customer_name }}{% endif %}</td>
+      <td><a href="{{ url_for('main.invoice_view', iid=inv.id) }}">{{ inv.number }}</a><div class="muted small">{{ inv.date }}</div></td>
+      <td class="num">₹{{ inv.total|inr }}</td>
+      <td class="num {{ 'warn' if it.due > 0 }}">₹{{ it.due|inr }}</td>
+      <td>{% if inv.status == 'paid' %}<span class="badge received">Payment received</span>
+          {% else %}<span class="badge pending">Pending</span>{% if inv.status == 'partial' %}<div class="muted small">part paid ₹{{ inv.amount_paid|inr }}</div>{% endif %}{% endif %}</td>
+      <td>{{ inv.due_date or '–' }}</td>
+      <td>{% if inv.status == 'paid' %}<span class="muted">–</span>
+          {% elif it.days_left is none %}<span class="muted">no due date</span>
+          {% elif it.days_left > 0 %}{{ it.days_left }} day{{ '' if it.days_left == 1 else 's' }} left
+          {% elif it.days_left == 0 %}<b class="warn">Due today</b>
+          {% else %}<b class="bad">Overdue by {{ -it.days_left }} day{{ '' if it.days_left == -1 else 's' }}</b>{% endif %}</td>
+      <td>{% if inv.status != 'paid' %}
+        <form method="post" action="{{ url_for('main.invoice_pay', iid=inv.id) }}" class="inline-form" style="flex-wrap:nowrap">
+          <input type="hidden" name="next" value="{{ request.full_path }}">
+          <input type="number" name="amount" step="0.01" min="0.01" value="{{ '%.2f'|format(it.due) }}" style="width:110px">
+          <button class="btn small primary">Received</button>
+        </form>{% endif %}</td>
+    </tr>
+  {% else %}
+    <tr><td colspan="8" class="muted">{{ 'No pending payments.' if status == 'pending' else 'Nothing to show.' }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endblock %}

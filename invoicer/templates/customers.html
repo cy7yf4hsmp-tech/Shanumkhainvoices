@@ -2,24 +2,28 @@
 {% block title %}Customers{% endblock %}
 {% block content %}
 <div class="page-head">
-  <h1>Customers</h1>
+  <h1>Customers <small class="muted">({{ customers|length }})</small></h1>
   <div class="actions"><a class="btn primary" href="{{ url_for('main.customer_form') }}">+ Add customer</a></div>
 </div>
 <form class="filters" method="get">
-  <input name="q" value="{{ q }}" placeholder="Search name, phone or GSTIN">
+  <input name="q" value="{{ q }}" placeholder="Search name, phone, email, city or GSTIN">
   <button class="btn">Search</button>
 </form>
-<table class="card">
-  <thead><tr><th>Name</th><th>Phone</th><th>GSTIN</th><th>State</th><th class="num">Balance due</th><th></th></tr></thead>
+<div class="table-scroll card" style="padding:0">
+<table>
+  <thead><tr><th>Customer name</th><th>Address</th><th>Mail ID</th><th>Phone number</th><th>City</th><th></th></tr></thead>
   <tbody>
   {% for c in customers %}
-    <tr><td><a href="{{ url_for('main.customer_detail', cid=c.id) }}">{{ c.name }}</a></td><td>{{ c.phone }}</td>
-        <td>{{ c.gstin }}</td><td>{{ c.state }}</td>
-        <td class="num {{ 'warn' if c.due }}">₹{{ c.due|inr }}</td>
+    <tr><td><a href="{{ url_for('main.customer_detail', cid=c.id) }}">{{ c.name }}</a></td>
+        <td class="pre">{{ c.address }}</td>
+        <td>{% if c.email %}<a href="mailto:{{ c.email }}">{{ c.email }}</a>{% endif %}</td>
+        <td>{% if c.phone %}<a href="tel:{{ c.phone|replace(' ', '') }}">{{ c.phone }}</a>{% endif %}</td>
+        <td>{{ c.city }}</td>
         <td class="num"><a href="{{ url_for('main.customer_form', cid=c.id) }}">Edit</a></td></tr>
   {% else %}
     <tr><td colspan="6" class="muted">No customers yet.</td></tr>
   {% endfor %}
   </tbody>
 </table>
+</div>
 {% endblock %}
