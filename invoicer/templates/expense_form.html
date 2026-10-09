@@ -2,7 +2,7 @@
 {% block title %}Edit expense{% endblock %}
 {% block content %}
 <h1>Edit expense</h1>
-<form method="post" class="card form">
+<form method="post" class="card form">{{ csrf_field() }}
   <div class="row">
     <label>Date<input type="date" name="date" value="{{ expense.date }}" required></label>
     <label>Type

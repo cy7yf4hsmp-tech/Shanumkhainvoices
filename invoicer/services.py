@@ -8,6 +8,16 @@ class StockError(ValueError):
     pass
 
 
+def current_user_name():
+    """Name of the logged-in user, for the record of who made a change ('' outside a request)."""
+    try:
+        from flask import g
+        user = g.get("user")
+        return user["full_name"] if user else ""
+    except RuntimeError:
+        return ""
+
+
 def now_local():
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
@@ -24,9 +34,9 @@ def record_movement(db, product_id, qty, kind, reference="", note="", allow_nega
         )
     db.execute("UPDATE products SET stock = ? WHERE id = ?", (balance, product_id))
     db.execute(
-        "INSERT INTO stock_movements (product_id, date, kind, qty, balance, reference, note) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?)",
-        (product_id, when or now_local(), kind, qty, balance, reference, note),
+        "INSERT INTO stock_movements (product_id, date, kind, qty, balance, reference, note, user) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        (product_id, when or now_local(), kind, qty, balance, reference, note, current_user_name()),
     )
     return balance
 
@@ -129,12 +139,12 @@ def create_invoice(db, customer, lines, tax_type="intra", invoice_date=None, due
         cur = db.execute(
             """INSERT INTO invoices (number, fy, seq, date, due_days, due_date, customer_id, customer_name, customer_address,
                    customer_phone, customer_gstin, ship_to_address, tax_type, subtotal, discount, tax_total, round_off, total,
-                   amount_paid, status, notes)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                   amount_paid, status, notes, created_by)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (number, fy, seq, inv_date.isoformat(), due_days, due_date, customer.get("id"),
              customer["name"].strip(), customer.get("address", ""), customer.get("phone", ""),
              customer.get("gstin", ""), customer.get("ship_to_address") or customer.get("address", ""), tax_type, totals["subtotal"], totals["discount"],
-             totals["tax_total"], totals["round_off"], totals["total"], amount_paid, status, notes),
+             totals["tax_total"], totals["round_off"], totals["total"], amount_paid, status, notes, current_user_name()),
         )
         invoice_id = cur.lastrowid
         for l in computed:
@@ -188,7 +198,8 @@ def cancel_invoice(db, invoice_id):
         for item in items:
             record_movement(db, item["product_id"], item["qty"], "cancel", reference=inv["number"],
                             note="Invoice cancelled")
-        db.execute("UPDATE invoices SET status = 'cancelled' WHERE id = ?", (invoice_id,))
+        db.execute("UPDATE invoices SET status = 'cancelled', cancelled_by = ? WHERE id = ?",
+                   (current_user_name(), invoice_id))
         db.commit()
     except Exception:
         db.rollback()

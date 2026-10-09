@@ -59,6 +59,8 @@ CREATE TABLE IF NOT EXISTS invoices (
     transport_type   TEXT DEFAULT '',
     vehicle_no       TEXT DEFAULT '',
     dispatch_note    TEXT DEFAULT '',
+    created_by       TEXT DEFAULT '',
+    cancelled_by     TEXT DEFAULT '',
     created_at       TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -85,7 +87,8 @@ CREATE TABLE IF NOT EXISTS stock_movements (
     qty        REAL NOT NULL,   -- signed: + in, - out
     balance    REAL NOT NULL,
     reference  TEXT DEFAULT '',
-    note       TEXT DEFAULT ''
+    note       TEXT DEFAULT '',
+    user       TEXT DEFAULT ''
 );
 
 CREATE INDEX IF NOT EXISTS idx_items_invoice ON invoice_items(invoice_id);
@@ -100,6 +103,7 @@ CREATE TABLE IF NOT EXISTS expenses (
     payment_mode TEXT DEFAULT '',
     invoice_id   INTEGER REFERENCES invoices(id),
     note         TEXT DEFAULT '',
+    created_by   TEXT DEFAULT '',
     created_at   TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -114,6 +118,7 @@ CREATE TABLE IF NOT EXISTS loans (
     purpose       TEXT DEFAULT '',
     note          TEXT DEFAULT '',
     status        TEXT NOT NULL DEFAULT 'active',  -- active | closed
+    created_by    TEXT DEFAULT '',
     created_at    TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -130,4 +135,25 @@ CREATE TABLE IF NOT EXISTS loan_repayments (
     date    TEXT NOT NULL,
     amount  REAL NOT NULL,
     note    TEXT DEFAULT ''
+);
+
+CREATE TABLE IF NOT EXISTS users (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    username      TEXT NOT NULL UNIQUE COLLATE NOCASE,
+    full_name     TEXT NOT NULL,
+    password_hash TEXT NOT NULL,
+    role          TEXT NOT NULL DEFAULT 'staff',   -- admin | partner | investor | staff
+    active        INTEGER NOT NULL DEFAULT 1,
+    failed_logins INTEGER NOT NULL DEFAULT 0,
+    locked_until  TEXT,
+    last_login    TEXT,
+    created_at    TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- What each (non-admin) user may do in each section: view | edit. No row = no access.
+CREATE TABLE IF NOT EXISTS user_permissions (
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    section TEXT NOT NULL,
+    level   TEXT NOT NULL,
+    PRIMARY KEY (user_id, section)
 );

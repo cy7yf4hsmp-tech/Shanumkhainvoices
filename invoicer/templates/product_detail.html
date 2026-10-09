@@ -3,11 +3,11 @@
 {% block content %}
 <div class="page-head">
   <h1>{{ product.name }} {% if product.sku %}<small class="muted">{{ product.sku }}</small>{% endif %}</h1>
-  <div class="actions">
+  <div class="actions">{% if can('products', 'edit') %}
     <a class="btn" href="{{ url_for('main.product_edit', pid=product.id) }}">Edit</a>
-    <form method="post" action="{{ url_for('main.product_delete', pid=product.id) }}" onsubmit="return confirm('Archive this product? Its history is kept.')">
+    <form method="post" action="{{ url_for('main.product_delete', pid=product.id) }}" onsubmit="return confirm('Archive this product? Its history is kept.')">{{ csrf_field() }}
       <button class="btn danger">Archive</button>
-    </form>
+    </form>{% endif %}
   </div>
 </div>
 <div class="tiles">
@@ -18,9 +18,10 @@
   <div class="tile"><span>Stock value</span><strong>₹{{ (product.stock * product.cost)|inr }}</strong></div>
 </div>
 
+{% if can('products', 'edit') %}
 <section class="card">
   <h2>Update stock</h2>
-  <form method="post" action="{{ url_for('main.product_stock', pid=product.id) }}" class="inline-form">
+  <form method="post" action="{{ url_for('main.product_stock', pid=product.id) }}" class="inline-form">{{ csrf_field() }}
     <select name="action">
       <option value="in">Stock in (purchase)</option>
       <option value="out">Stock out (damage / own use)</option>
@@ -32,18 +33,19 @@
     <button class="btn primary">Apply</button>
   </form>
 </section>
+{% endif %}
 
 <section class="card">
   <h2>Stock history</h2>
   <table>
-    <thead><tr><th>Date</th><th>Type</th><th class="num">Change</th><th class="num">Balance</th><th>Reference</th><th>Note</th></tr></thead>
+    <thead><tr><th>Date</th><th>Type</th><th class="num">Change</th><th class="num">Balance</th><th>Reference</th><th>Note</th><th>By</th></tr></thead>
     <tbody>
     {% for m in moves %}
       <tr><td>{{ m.date[:16] }}</td><td><span class="badge {{ m.kind }}">{{ m.kind }}</span></td>
           <td class="num {{ 'good' if m.qty > 0 else 'bad' }}">{{ '+' if m.qty > 0 }}{{ m.qty|qty }}</td>
-          <td class="num">{{ m.balance|qty }}</td><td>{{ m.reference }}</td><td>{{ m.note }}</td></tr>
+          <td class="num">{{ m.balance|qty }}</td><td>{{ m.reference }}</td><td>{{ m.note }}</td><td class="small muted">{{ m.user }}</td></tr>
     {% else %}
-      <tr><td colspan="6" class="muted">No stock movements yet.</td></tr>
+      <tr><td colspan="7" class="muted">No stock movements yet.</td></tr>
     {% endfor %}
     </tbody>
   </table>

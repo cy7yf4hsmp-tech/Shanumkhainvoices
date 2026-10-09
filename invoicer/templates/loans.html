@@ -3,7 +3,7 @@
 {% block content %}
 <div class="page-head">
   <h1>Loans</h1>
-  <div class="actions"><a class="btn primary" href="{{ url_for('main.loan_form') }}">+ Record a loan</a></div>
+  <div class="actions">{% if can('loans', 'edit') %}<a class="btn primary" href="{{ url_for('main.loan_form') }}">+ Record a loan</a>{% endif %}</div>
 </div>
 
 <div class="tiles">

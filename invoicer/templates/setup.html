@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}First-time setup{% endblock %}
+{% block content %}
+<div class="auth-box" style="max-width:480px">
+  <h1>Create the administrator</h1>
+  <p class="muted">This is the first time the app is opened. Create the administrator login. The administrator
+    adds everyone else and decides what each person can see and change.</p>
+  <form method="post" class="card form">{{ csrf_field() }}
+    <label>Your name<input name="full_name" value="{{ form.full_name or '' }}" required autofocus></label>
+    <label>Username<input name="username" value="{{ form.username or '' }}" autocomplete="username" required></label>
+    <label>Password (at least 8 characters)<input type="password" name="password" autocomplete="new-password" required minlength="8"></label>
+    <label>Repeat password<input type="password" name="confirm_password" autocomplete="new-password" required minlength="8"></label>
+    <button class="btn primary big" style="width:100%">Create administrator</button>
+  </form>
+</div>
+{% endblock %}

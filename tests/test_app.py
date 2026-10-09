@@ -7,12 +7,33 @@ from invoicer.utils import amount_in_words, inr
 
 @pytest.fixture
 def app(tmp_path):
-    return create_app({"TESTING": True, "DATABASE": str(tmp_path / "test.sqlite3"), "SECRET_KEY": "test"})
+    app = create_app({"TESTING": True, "DATABASE": str(tmp_path / "test.sqlite3"), "SECRET_KEY": "test",
+                      "CSRF_ENABLED": False})
+    with app.app_context():
+        make_user(get_db(), "admin", "admin")
+    return app
+
+
+def make_user(db, username, role, perms=None, password="password123"):
+    from werkzeug.security import generate_password_hash
+    uid = db.execute("INSERT INTO users (username, full_name, password_hash, role) VALUES (?, ?, ?, ?)",
+                     (username, username.title(), generate_password_hash(password), role)).lastrowid
+    for section, level in (perms or {}).items():
+        db.execute("INSERT INTO user_permissions (user_id, section, level) VALUES (?, ?, ?)", (uid, section, level))
+    db.commit()
+    return uid
+
+
+def login(client, username, password="password123"):
+    return client.post("/login", data={"username": username, "password": password})
 
 
 @pytest.fixture
 def client(app):
-    return app.test_client()
+    """A browser logged in as the administrator."""
+    c = app.test_client()
+    assert login(c, "admin").status_code == 302
+    return c
 
 
 def add_product(client, **kw):
@@ -378,3 +399,160 @@ def test_upload_preview_and_apply(client, app):
     client.post("/products/import/apply", data={"mode": "count", "target": ["1"], "name": ["Widget"], "sku": [""],
                                                 "hsn": [""], "unit": [""], "price": [""], "qty": ["7"]})
     assert stock_of(app) == 7
+
+
+# ---------------------------------------------------------------- logins, roles and access
+
+def test_must_log_in(app):
+    c = app.test_client()
+    resp = c.get("/invoices")
+    assert resp.status_code == 302 and "/login" in resp.headers["Location"]
+    assert c.post("/expenses", data={"amount": "5"}).status_code == 302  # no saving without login
+    assert login(c, "admin", "wrong-password").status_code == 401
+    assert c.get("/invoices").status_code == 302
+
+
+def test_first_run_setup_creates_admin(tmp_path):
+    app = create_app({"TESTING": True, "DATABASE": str(tmp_path / "new.sqlite3"), "CSRF_ENABLED": False})
+    c = app.test_client()
+    assert "/setup" in c.get("/").headers["Location"]
+    resp = c.post("/setup", data={"full_name": "Owner", "username": "owner", "password": "longpassword",
+                                  "confirm_password": "longpassword"})
+    assert resp.status_code == 302
+    assert c.get("/users").status_code == 200  # logged in as the new admin
+    # setup can't be used again once a user exists
+    assert "/login" in app.test_client().get("/setup").headers["Location"]
+
+
+def test_lockout_after_repeated_wrong_passwords(app):
+    c = app.test_client()
+    for _ in range(5):
+        login(c, "admin", "nope")
+    resp = login(c, "admin")  # right password, but locked
+    assert resp.status_code == 401 and b"Too many wrong passwords" in resp.data
+    with app.app_context():
+        get_db().execute("UPDATE users SET locked_until = '2000-01-01 00:00:00'")
+        get_db().commit()
+    assert login(c, "admin").status_code == 302
+
+
+def test_staff_only_sees_allowed_sections(app):
+    with app.app_context():
+        make_user(get_db(), "ravi", "staff", {"invoices": "edit", "customers": "view"})
+    c = app.test_client()
+    login(c, "ravi")
+    home = c.get("/", follow_redirects=True)
+    assert b"Invoices" in home.data and b"Loans" not in home.data and b"Users &amp; access" not in home.data
+    assert c.get("/invoices").status_code == 200
+    assert c.get("/invoices/new").status_code == 200
+    assert c.get("/loans").status_code == 403
+    assert c.get("/payments").status_code == 403
+    assert c.get("/users").status_code == 403
+    assert c.post("/expenses", data={"amount": "100", "category": "Auto"}).status_code == 403
+    # view-only on customers: can look, can't add or change
+    assert c.get("/customers").status_code == 200
+    assert b"+ Add customer" not in c.get("/customers").data
+    assert c.get("/customers/new").status_code == 403
+    assert c.post("/customers/new", data={"name": "X"}).status_code == 403
+
+
+def test_investor_view_only(app, client):
+    client.post("/loans/new", data={"lender_type": "bank", "lender_name": "SBI", "amount": "1000"})
+    with app.app_context():
+        make_user(get_db(), "investor1", "investor", {"loans": "view", "dashboard": "view"})
+    c = app.test_client()
+    login(c, "investor1")
+    assert c.get("/loans").status_code == 200 and b"SBI" in c.get("/loans").data
+    assert b"Record a loan" not in c.get("/loans").data
+    assert c.get("/loans/new").status_code == 403
+    assert c.post("/loans/1/repay", data={"amount": "10"}).status_code == 403
+    assert c.post("/loans/1/delete").status_code == 403
+
+
+def test_no_dashboard_access_goes_to_first_allowed_page(app):
+    with app.app_context():
+        make_user(get_db(), "packer", "staff", {"dispatch": "edit"})
+    c = app.test_client()
+    resp = login(c, "packer")
+    assert resp.headers["Location"].endswith("/dispatch")
+    assert c.get("/").headers["Location"].endswith("/dispatch")
+
+
+def test_admin_creates_user_and_sets_access(app, client):
+    resp = client.post("/users/new", data={
+        "full_name": "Suresh", "username": "suresh", "role": "partner", "password": "secret-pass",
+        "confirm_password": "secret-pass", "active": "1", "perm_invoices": "edit", "perm_loans": "view",
+        "perm_settings": "none"})
+    assert resp.status_code == 302
+    c = app.test_client()
+    assert login(c, "suresh", "secret-pass").status_code == 302
+    assert c.get("/loans").status_code == 200 and c.get("/loans/new").status_code == 403
+    assert c.get("/settings").status_code == 403
+    # admin changes access; it applies on the very next page
+    with app.app_context():
+        uid = get_db().execute("SELECT id FROM users WHERE username = 'suresh'").fetchone()[0]
+    client.post(f"/users/{uid}/edit", data={"full_name": "Suresh", "role": "partner", "active": "1",
+                                            "perm_loans": "edit"})
+    assert c.get("/loans/new").status_code == 200
+    assert c.get("/invoices").status_code == 403
+    # deactivating logs them out
+    client.post(f"/users/{uid}/edit", data={"full_name": "Suresh", "role": "partner"})
+    assert c.get("/loans").status_code == 302
+
+
+def test_admin_can_reset_password_and_username_is_unique(app, client):
+    client.post("/users/new", data={"full_name": "A", "username": "anil", "role": "staff",
+                                    "password": "first-pass", "confirm_password": "first-pass", "active": "1"})
+    dup = client.post("/users/new", data={"full_name": "B", "username": "ANIL", "role": "staff",
+                                          "password": "other-pass", "confirm_password": "other-pass"})
+    assert dup.status_code == 400 and b"already taken" in dup.data
+    with app.app_context():
+        uid = get_db().execute("SELECT id FROM users WHERE username = 'anil'").fetchone()[0]
+    client.post(f"/users/{uid}/edit", data={"full_name": "A", "role": "staff", "active": "1",
+                                            "password": "new-pass-1", "confirm_password": "new-pass-1"})
+    c = app.test_client()
+    assert login(c, "anil", "first-pass").status_code == 401
+    assert login(c, "anil", "new-pass-1").status_code == 302
+
+
+def test_last_admin_cannot_be_removed(app, client):
+    resp = client.post("/users/1/edit", data={"full_name": "Admin", "role": "staff", "active": "1"})
+    assert resp.status_code == 400 and b"at least one active administrator" in resp.data
+    with app.app_context():
+        assert get_db().execute("SELECT role FROM users WHERE id = 1").fetchone()[0] == "admin"
+
+
+def test_change_own_password(app, client):
+    bad = client.post("/account", data={"current_password": "wrong", "new_password": "abcdefgh1",
+                                        "confirm_password": "abcdefgh1"}, follow_redirects=True)
+    assert b"not correct" in bad.data
+    client.post("/account", data={"current_password": "password123", "new_password": "abcdefgh1",
+                                  "confirm_password": "abcdefgh1"})
+    c = app.test_client()
+    assert login(c, "admin", "abcdefgh1").status_code == 302
+
+
+def test_changes_record_who_made_them(app, client):
+    add_product(client)
+    client.post("/invoices/new", data=invoice_data(qty=["1"]))
+    client.post("/expenses", data={"category": "Auto", "amount": "50"})
+    with app.app_context():
+        db = get_db()
+        assert db.execute("SELECT created_by FROM invoices").fetchone()[0] == "Admin"
+        assert db.execute("SELECT user FROM stock_movements WHERE kind = 'sale'").fetchone()[0] == "Admin"
+        assert db.execute("SELECT created_by FROM expenses").fetchone()[0] == "Admin"
+
+
+def test_csrf_protection(tmp_path):
+    app = create_app({"TESTING": True, "DATABASE": str(tmp_path / "c.sqlite3"), "SECRET_KEY": "t"})
+    with app.app_context():
+        make_user(get_db(), "admin", "admin")
+    c = app.test_client()
+    assert c.post("/login", data={"username": "admin", "password": "password123"}).status_code == 400
+    import re
+    token = re.search(rb'name="_csrf" value="([^"]+)"', c.get("/login").data).group(1).decode()
+    assert c.post("/login", data={"username": "admin", "password": "password123", "_csrf": token}).status_code == 302
+    assert c.post("/expenses", data={"category": "Auto", "amount": "5"}).status_code == 400  # forged form
+    # logging in starts a fresh session with a new token, which the next page carries
+    token = re.search(rb'name="_csrf" value="([^"]+)"', c.get("/expenses").data).group(1).decode()
+    assert c.post("/expenses", data={"category": "Auto", "amount": "5", "_csrf": token}).status_code == 302

@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}No access{% endblock %}
+{% block content %}
+<div class="auth-box" style="max-width:520px;text-align:center">
+  <h1>You don't have access to this</h1>
+  <p class="muted">Your login doesn't include this section{{ ' (or only lets you view it, not change it)' if request.method == 'POST' }}.
+    If you need it, ask the administrator to give you access.</p>
+  <p><a class="btn" href="{{ url_for('main.dashboard') }}">Go to my home page</a></p>
+</div>
+{% endblock %}

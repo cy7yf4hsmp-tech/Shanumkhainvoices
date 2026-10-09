@@ -46,7 +46,12 @@ MIGRATIONS = {
         "fy": "TEXT",
         "seq": "INTEGER",
         "due_days": "INTEGER",
+        "created_by": "TEXT DEFAULT ''",
+        "cancelled_by": "TEXT DEFAULT ''",
     },
+    "stock_movements": {"user": "TEXT DEFAULT ''"},
+    "expenses": {"created_by": "TEXT DEFAULT ''"},
+    "loans": {"created_by": "TEXT DEFAULT ''"},
     "customers": {
         "city": "TEXT DEFAULT ''",
     },

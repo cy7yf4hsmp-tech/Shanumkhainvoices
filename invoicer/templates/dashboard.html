@@ -3,14 +3,25 @@
 {% block content %}
 <h1>Dashboard</h1>
 <div class="tiles">
+  {% if can('invoices') %}
   <div class="tile"><span>Sales today</span><strong>₹{{ stats.today|inr }}</strong></div>
   <div class="tile"><span>Sales this month</span><strong>₹{{ stats.month|inr }}</strong></div>
+  {% endif %}
+  {% if can('payments') or can('invoices') %}
   <div class="tile"><span>Outstanding (unpaid)</span><strong class="{{ 'warn' if stats.outstanding }}">₹{{ stats.outstanding|inr }}</strong></div>
+  {% endif %}
+  {% if can('stock') or can('products') %}
   <div class="tile"><span>Stock value (at cost)</span><strong>₹{{ stats.stock_value|inr }}</strong></div>
+  {% endif %}
+  {% if can('expenses') %}
   <div class="tile"><span>Expenses this month</span><strong>₹{{ stats.expenses|inr }}</strong></div>
+  {% endif %}
+  {% if can('dispatch') %}
   <a class="tile" href="{{ url_for('main.dispatch', status='not_dispatched') }}"><span>Waiting for dispatch</span><strong class="{{ 'warn' if stats.to_dispatch }}">{{ stats.to_dispatch }}</strong></a>
+  {% endif %}
 </div>
 
+{% if can('stock') %}
 <section class="card">
   <div class="card-head"><h2>Stock out</h2><a href="{{ url_for('main.stock_summary', view='out', period='month') }}">View details</a></div>
   <div class="tiles flat">
@@ -35,8 +46,10 @@
   </table>
   {% else %}<p class="muted">Nothing has gone out of stock this month yet.</p>{% endif %}
 </section>
+{% endif %}
 
 <div class="grid2">
+  {% if can('products') %}
   <section class="card">
     <div class="card-head"><h2>Low stock</h2><a href="{{ url_for('main.products', low=1) }}">View all</a></div>
     {% if low_stock %}
@@ -53,6 +66,8 @@
     {% else %}<p class="muted">All products are above their reorder level.</p>{% endif %}
   </section>
 
+  {% endif %}
+  {% if can('invoices') %}
   <section class="card">
     <div class="card-head"><h2>Recent invoices</h2><a href="{{ url_for('main.invoices') }}">View all</a></div>
     {% if recent %}
@@ -68,5 +83,6 @@
     </table>
     {% else %}<p class="muted">No invoices yet. <a href="{{ url_for('main.invoice_new') }}">Create the first one</a>.</p>{% endif %}
   </section>
+  {% endif %}
 </div>
 {% endblock %}

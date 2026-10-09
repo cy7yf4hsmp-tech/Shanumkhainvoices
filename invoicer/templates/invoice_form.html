@@ -5,7 +5,7 @@
   <h1>New invoice</h1>
   <span class="muted">Invoice no. will be <b>{{ next_number }}</b></span>
 </div>
-<form method="post" id="invoice-form" class="form">
+<form method="post" id="invoice-form" class="form">{{ csrf_field() }}
   <section class="card">
     <h2>Customer</h2>
     <div class="row">

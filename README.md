@@ -52,6 +52,16 @@ It runs on your own computer (or a small server) and keeps all data in one SQLit
 **Customers**
 - Customer name, address, mail ID, phone number and city, with each customer's invoice history
 
+**Logins and access**
+- Everyone logs in with their own username and password. Roles: Administrator, Partner, Investor, Staff
+- The administrator adds people and decides, **section by section**, what each person gets: no access,
+  view only, or view & edit. Choosing a role fills in suggested access that can then be changed
+- Only the administrator can add users, change roles and access, reset passwords and deactivate logins
+- People only see the sections they're allowed in; the server also refuses anything they aren't allowed to do
+- Passwords are stored hashed; 5 wrong passwords lock a login for 15 minutes; logins expire after 12 hours;
+  forms are protected against forged submissions (CSRF)
+- The app records who created each invoice, stock change, expense and loan
+
 **Other**
 - Dashboard: sales, outstanding amount, stock value, expenses this month, invoices waiting for dispatch,
   **stock out today / this week / this month**, low stock, recent invoices
@@ -70,6 +80,8 @@ python run.py
 
 Open http://127.0.0.1:5000 in your browser. Then:
 
+1. The first time, the app asks you to **create the administrator login**. Do this straight away.
+1. Under **Users & access**, add a login for each person and choose what they can see and change.
 1. Go to **Settings** and enter your business details and GSTIN.
 2. Add your **Products** with their opening stock.
 3. Click **+ New invoice**.
@@ -79,14 +91,23 @@ Open http://127.0.0.1:5000 in your browser. Then:
 | Variable       | Default                      | Purpose                                         |
 |----------------|------------------------------|-------------------------------------------------|
 | `INVOICER_DB`  | `instance/invoicer.sqlite3`  | Where the database file is stored               |
-| `SECRET_KEY`   | `change-me-in-production`    | Set a random value if others can reach the app |
+| `SECRET_KEY`   | random, saved in `instance/` | Key that signs login cookies (optional to set) |
+| `SESSION_COOKIE_SECURE` | off               | Set to `1` when the app is served over https    |
 | `HOST`, `PORT` | `127.0.0.1`, `5000`          | Use `HOST=0.0.0.0` to open it from other devices on your network |
 
 Databases from an older version are upgraded automatically when the app starts.
 
 **Backup:** copy the database file (`instance/invoicer.sqlite3`). That one file holds all your data.
 
-> The app has no login. Keep it on your own computer or a trusted local network. Don't expose it to the internet as is.
+**Forgot the administrator password?** On the computer or server running the app:
+
+```bash
+flask --app run create-admin      # creates an admin, or resets the password of an existing username
+```
+
+> Before putting the app on the internet, serve it over **https** and set `SESSION_COOKIE_SECURE=1`.
+> The login cookie is signed with a random key kept in `instance/secret_key` (created automatically);
+> keep that folder private and include it in backups.
 
 ## Running tests
 
@@ -101,6 +122,7 @@ python -m pytest
 run.py                  # starts the app
 invoicer/
   __init__.py           # app factory
+  auth.py               # logins, roles, per-section access, user management
   schema.sql            # database tables
   db.py                 # database connection & settings
   services.py           # invoice totals and numbering, stock movements, cancel/payment logic

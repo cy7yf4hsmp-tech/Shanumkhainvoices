@@ -3,7 +3,7 @@
 {% block content %}
 <div class="page-head">
   <h1>{{ customer.name }}</h1>
-  <div class="actions"><a class="btn" href="{{ url_for('main.customer_form', cid=customer.id) }}">Edit</a></div>
+  <div class="actions">{% if can('customers', 'edit') %}<a class="btn" href="{{ url_for('main.customer_form', cid=customer.id) }}">Edit</a>{% endif %}</div>
 </div>
 <section class="card">
   <p class="pre">{{ customer.address }}</p>

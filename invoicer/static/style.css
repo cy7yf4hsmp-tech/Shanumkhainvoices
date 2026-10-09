@@ -167,3 +167,26 @@ tr.skip td { opacity: .45; }
 .topbar nav { gap: 2px; }
 .topbar nav a { padding: 6px 8px; font-size: 13.5px; white-space: nowrap; }
 .nowrap { white-space: nowrap; }
+.usermenu { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+.usermenu a { color: #fff; font-size: 13px; white-space: nowrap; }
+.usermenu .role { display: inline-block; background: rgba(255,255,255,.15); border-radius: 99px; padding: 0 7px; font-size: 11px; margin-left: 2px; }
+.usermenu form { margin: 0; }
+.usermenu .btn { background: transparent; color: #c8d1e6; border-color: rgba(255,255,255,.25); }
+.usermenu .btn:hover { background: rgba(255,255,255,.1); color: #fff; }
+.topbar { flex-wrap: wrap; row-gap: 8px; }
+.auth-box { max-width: 400px; margin: 60px auto; }
+.auth-box h1 { text-align: center; }
+.perm-table td, .perm-table th { vertical-align: middle; }
+.perm-table label.check { margin: 0; justify-content: center; }
+.perm-table input[type=radio] { width: auto; }
+.perm-none { color: var(--muted); }
+.perm-view { color: var(--brand); font-weight: 600; }
+.perm-edit { color: var(--good); font-weight: 600; }
+.badge.admin { background: #14213d; color: #fff; }
+.badge.partner { background: #e4edfb; color: var(--brand); }
+.badge.investor { background: #f3e8fd; color: #7b3fb5; }
+.badge.staff { background: #eef0f4; color: var(--muted); }
+.access-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.access-chips span { font-size: 11px; padding: 1px 7px; border-radius: 99px; background: #eef0f4; }
+.access-chips span.edit { background: #e3f4ea; color: var(--good); }
+.access-chips span.view { background: #e4edfb; color: var(--brand); }

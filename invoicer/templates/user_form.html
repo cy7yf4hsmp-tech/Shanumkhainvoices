@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Edit' if uid else 'Add' }} user{% endblock %}
+{% block content %}
+<h1>{{ 'Edit ' ~ form.full_name if uid else 'Add a user' }}</h1>
+<form method="post" class="form" id="user-form">{{ csrf_field() }}
+  <section class="card">
+    <h2>Login details</h2>
+    <div class="row">
+      <label>Full name *<input name="full_name" value="{{ form.full_name or '' }}" required></label>
+      <label>Username *
+        {% if uid %}<input value="{{ form.username }}" disabled><small class="muted">Usernames can't be changed</small>
+        {% else %}<input name="username" value="{{ form.username or '' }}" required autocomplete="off">{% endif %}
+      </label>
+      <label>Role
+        <select name="role" id="role">
+          {% for key, label in roles.items() %}<option value="{{ key }}" {{ 'selected' if form.role == key }}>{{ label }}</option>{% endfor %}
+        </select>
+      </label>
+    </div>
+    <div class="row">
+      <label>{{ 'New password (leave empty to keep the current one)' if uid else 'Password * (at least 8 characters)' }}
+        <input type="password" name="password" autocomplete="new-password" {{ '' if uid else 'required' }} minlength="8"></label>
+      <label>Repeat password<input type="password" name="confirm_password" autocomplete="new-password" minlength="8"></label>
+    </div>
+    <label class="check"><input type="checkbox" name="active" value="1" {{ 'checked' if form.active }}> Active (can log in)</label>
+  </section>
+
+  <section class="card">
+    <h2>Access to each section</h2>
+    <p class="muted" id="admin-note" {{ 'hidden' if form.role != 'admin' }}>Administrators can access everything and manage users.</p>
+    <div id="perm-wrap" {{ 'hidden' if form.role == 'admin' }}>
+      <p class="muted small">Choosing a role fills in suggested access. You can change any section below.</p>
+      <table class="perm-table">
+        <thead><tr><th>Section</th>{% for lvl, label in levels.items() %}<th style="text-align:center">{{ label }}</th>{% endfor %}</tr></thead>
+        <tbody>
+        {% for key, label, endpoint in sections %}
+          <tr><td>{{ label }}</td>
+            {% for lvl in levels %}
+              <td style="text-align:center"><label class="check"><input type="radio" name="perm_{{ key }}" value="{{ lvl }}"
+                {{ 'checked' if (perms.get(key) or 'none') == lvl }}></label></td>
+            {% endfor %}
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <div class="actions">
+    <button class="btn primary big">Save</button>
+    <a class="btn" href="{{ url_for('auth.users') }}">Cancel</a>
+  </div>
+</form>
+{% endblock %}
+{% block scripts %}
+<script>
+(function () {
+  const defaults = {{ role_defaults|tojson }};
+  const sections = {{ sections|map(attribute=0)|list|tojson }};
+  const role = document.getElementById('role');
+  function apply(fill) {
+    const isAdmin = role.value === 'admin';
+    document.getElementById('perm-wrap').hidden = isAdmin;
+    document.getElementById('admin-note').hidden = !isAdmin;
+    if (!fill || isAdmin) return;
+    const d = defaults[role.value] || {};
+    sections.forEach(s => {
+      const el = document.querySelector(`input[name="perm_${s}"][value="${d[s] || 'none'}"]`);
+      if (el) el.checked = true;
+    });
+  }
+  role.addEventListener('change', () => apply(true));
+  apply(false);
+})();
+</script>
+{% endblock %}

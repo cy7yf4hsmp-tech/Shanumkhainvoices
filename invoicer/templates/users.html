@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Users & access{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>Users &amp; access <small class="muted">({{ users|length }})</small></h1>
+  <div class="actions"><a class="btn primary" href="{{ url_for('auth.user_form') }}">+ Add user</a></div>
+</div>
+<p class="muted">Each person logs in with their own username. You decide, section by section, what they can view or change.</p>
+<div class="table-scroll card" style="padding:0">
+<table>
+  <thead><tr><th>Name</th><th>Username</th><th>Role</th><th>Access</th><th>Status</th><th>Last login</th><th></th></tr></thead>
+  <tbody>
+  {% for u in users %}
+    <tr class="{{ 'skip' if not u.active }}">
+      <td><b>{{ u.full_name }}</b>{% if u.id == g.user.id %} <span class="muted small">(you)</span>{% endif %}</td>
+      <td>{{ u.username }}</td>
+      <td><span class="badge {{ u.role }}">{{ roles[u.role] }}</span></td>
+      <td>
+        {% if u.role == 'admin' %}<span class="muted small">Everything + manage users</span>
+        {% else %}
+          <div class="access-chips">
+          {% set p = perms.get(u.id, {}) %}
+          {% for key, label, endpoint in sections if p.get(key) %}
+            <span class="{{ p[key] }}" title="{{ 'View & edit' if p[key] == 'edit' else 'View only' }}">{{ label }}{{ ' ✎' if p[key] == 'edit' }}</span>
+          {% else %}<span>No access yet</span>{% endfor %}
+          </div>
+        {% endif %}
+      </td>
+      <td>{% if not u.active %}<span class="badge cancelled">Deactivated</span>
+          {% elif u.locked_until and u.locked_until > now %}<span class="badge unpaid">Locked</span>
+            <form method="post" action="{{ url_for('auth.user_unlock', uid=u.id) }}" style="display:inline">{{ csrf_field() }}<button class="btn small">Unlock</button></form>
+          {% else %}<span class="badge paid">Active</span>{% endif %}</td>
+      <td class="small">{{ u.last_login[:16] if u.last_login else 'Never' }}</td>
+      <td class="num"><a href="{{ url_for('auth.user_form', uid=u.id) }}">Edit</a></td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+<p class="muted small">✎ = can view and change. Others are view only. Deactivated users can't log in, but their past work stays in the records.</p>
+{% endblock %}

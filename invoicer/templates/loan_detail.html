@@ -3,11 +3,11 @@
 {% block content %}
 <div class="page-head">
   <h1>{{ loan.lender_name }} <span class="badge {{ loan.status }}">{{ loan.status }}</span></h1>
-  <div class="actions">
+  <div class="actions">{% if can('loans', 'edit') %}
     <a class="btn" href="{{ url_for('main.loan_form', lid=loan.id) }}">Edit</a>
-    <form method="post" action="{{ url_for('main.loan_delete', lid=loan.id) }}" onsubmit="return confirm('Delete this loan and all its repayments?')">
+    <form method="post" action="{{ url_for('main.loan_delete', lid=loan.id) }}" onsubmit="return confirm('Delete this loan and all its repayments?')">{{ csrf_field() }}
       <button class="btn danger">Delete</button>
-    </form>
+    </form>{% endif %}
   </div>
 </div>
 <div class="tiles">
@@ -41,18 +41,19 @@
 
   <section class="card">
     <h2>Repayments</h2>
-    <form method="post" action="{{ url_for('main.loan_repay', lid=loan.id) }}" class="inline-form" style="margin-bottom:12px">
+{% if can('loans', 'edit') %}
+    <form method="post" action="{{ url_for('main.loan_repay', lid=loan.id) }}" class="inline-form" style="margin-bottom:12px">{{ csrf_field() }}
       <input type="date" name="date" value="{{ today }}">
       <input type="number" name="amount" step="0.01" min="0.01" placeholder="Amount ₹" required>
       <input name="note" placeholder="Note (EMI, interest…)">
       <button class="btn primary">Add</button>
-    </form>
+    </form>{% endif %}
     <table>
       <thead><tr><th>Date</th><th>Note</th><th class="num">Amount</th><th></th></tr></thead>
       <tbody>
       {% for r in repayments %}
         <tr><td>{{ r.date }}</td><td>{{ r.note }}</td><td class="num">₹{{ r.amount|inr }}</td>
-          <td class="num"><form method="post" action="{{ url_for('main.loan_repayment_delete', lid=loan.id, rid=r.id) }}" onsubmit="return confirm('Delete this repayment?')"><button class="btn small danger">✕</button></form></td></tr>
+          <td class="num">{% if can('loans', 'edit') %}<form method="post" action="{{ url_for('main.loan_repayment_delete', lid=loan.id, rid=r.id) }}" onsubmit="return confirm('Delete this repayment?')">{{ csrf_field() }}<button class="btn small danger">✕</button></form>{% endif %}</td></tr>
       {% else %}
         <tr><td colspan="4" class="muted">No repayments yet.</td></tr>
       {% endfor %}

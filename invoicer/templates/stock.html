@@ -57,16 +57,16 @@
 
 {% elif view == 'all' %}
 <table class="card">
-  <thead><tr><th>Date</th><th>Product</th><th>Type</th><th class="num">Change</th><th class="num">Balance</th><th>Reference</th><th>Note</th></tr></thead>
+  <thead><tr><th>Date</th><th>Product</th><th>Type</th><th class="num">Change</th><th class="num">Balance</th><th>Reference</th><th>Note</th><th>By</th></tr></thead>
   <tbody>
   {% for m in moves %}
     <tr><td>{{ m.date[:16] }}</td>
         <td><a href="{{ url_for('main.product_detail', pid=m.product_id) }}">{{ m.product_name }}</a></td>
         <td><span class="badge {{ m.kind }}">{{ m.kind }}</span></td>
         <td class="num {{ 'good' if m.qty > 0 else 'bad' }}">{{ '+' if m.qty > 0 }}{{ m.qty|qty }} {{ m.unit }}</td>
-        <td class="num">{{ m.balance|qty }}</td><td>{{ m.reference }}</td><td>{{ m.note }}</td></tr>
+        <td class="num">{{ m.balance|qty }}</td><td>{{ m.reference }}</td><td>{{ m.note }}</td><td class="small muted">{{ m.user }}</td></tr>
   {% else %}
-    <tr><td colspan="7" class="muted">No stock movements in this period.</td></tr>
+    <tr><td colspan="8" class="muted">No stock movements in this period.</td></tr>
   {% endfor %}
   </tbody>
 </table>

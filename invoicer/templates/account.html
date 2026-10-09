@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}My account{% endblock %}
+{% block content %}
+<h1>My account</h1>
+<div class="grid2">
+  <section class="card">
+    <h2>{{ g.user.full_name }}</h2>
+    <p>Username: <b>{{ g.user.username }}</b><br>Role: <span class="badge {{ g.user.role }}">{{ roles[g.user.role] }}</span></p>
+    <h2 style="margin-top:16px">What I can access</h2>
+    {% if g.user.role == 'admin' %}
+      <p>Everything, including managing users and their access.</p>
+    {% else %}
+    <table>
+      <tbody>
+      {% for key, label, endpoint in sections %}
+        {% set lvl = 'edit' if can(key, 'edit') else ('view' if can(key) else 'none') %}
+        <tr><td>{{ label }}</td><td class="perm-{{ lvl }}">{{ levels[lvl] }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    <p class="muted small">Only the administrator can change your access.</p>
+    {% endif %}
+  </section>
+  <section class="card">
+    <h2>Change my password</h2>
+    <form method="post" class="form">{{ csrf_field() }}
+      <label>Current password<input type="password" name="current_password" autocomplete="current-password" required></label>
+      <label>New password (at least 8 characters)<input type="password" name="new_password" autocomplete="new-password" minlength="8" required></label>
+      <label>Repeat new password<input type="password" name="confirm_password" autocomplete="new-password" minlength="8" required></label>
+      <button class="btn primary">Change password</button>
+    </form>
+  </section>
+</div>
+{% endblock %}

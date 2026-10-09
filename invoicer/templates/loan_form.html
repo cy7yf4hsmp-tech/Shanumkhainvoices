@@ -2,7 +2,7 @@
 {% block title %}{{ 'Edit' if lid else 'Record' }} loan{% endblock %}
 {% block content %}
 <h1>{{ 'Edit loan' if lid else 'Record a loan' }}</h1>
-<form method="post" class="form" id="loan-form">
+<form method="post" class="form" id="loan-form">{{ csrf_field() }}
   <section class="card">
     <h2>Loan details</h2>
     <div class="row">

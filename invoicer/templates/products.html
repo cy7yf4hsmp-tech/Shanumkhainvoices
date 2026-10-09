@@ -5,8 +5,10 @@
   <h1>Products &amp; stock <small class="muted">({{ products|length }})</small></h1>
   <div class="actions">
     <a class="btn" href="{{ url_for('main.stock_export') }}">Export CSV</a>
+{% if can('products', 'edit') %}
     <a class="btn" href="{{ url_for('main.product_import') }}">⇪ Upload stock file (PDF / Excel / Word)</a>
     <a class="btn primary" href="{{ url_for('main.product_new') }}">+ Add product</a>
+    {% endif %}
   </div>
 </div>
 <form class="filters" method="get">
@@ -27,7 +29,7 @@
       <td class="num">{{ p.gst_rate|qty }}%</td>
       <td class="num {{ 'bad' if p.stock <= 0 else ('warn' if p.stock <= p.reorder_level) }}">{{ p.stock|qty }} {{ p.unit }}</td>
       <td class="num">{{ p.reorder_level|qty }}</td>
-      <td class="num"><a href="{{ url_for('main.product_edit', pid=p.id) }}">Edit</a></td>
+      <td class="num">{% if can('products', 'edit') %}<a href="{{ url_for('main.product_edit', pid=p.id) }}">Edit</a>{% endif %}</td>
     </tr>
   {% else %}
     <tr><td colspan="8" class="muted">No products found.</td></tr>

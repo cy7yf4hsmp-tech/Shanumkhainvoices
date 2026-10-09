@@ -4,7 +4,7 @@
 <h1>Check before updating stock</h1>
 <p class="muted">Read <b>{{ items|length }}</b> row(s) from <b>{{ filename }}</b>. Check each match and quantity, then click <b>Update stock</b>.
   Nothing has changed yet.</p>
-<form method="post" action="{{ url_for('main.product_import_apply') }}" class="form">
+<form method="post" action="{{ url_for('main.product_import_apply') }}" class="form">{{ csrf_field() }}
   <section class="card">
     <div class="row">
       <label>Quantities in the file should

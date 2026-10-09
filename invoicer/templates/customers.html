@@ -3,7 +3,7 @@
 {% block content %}
 <div class="page-head">
   <h1>Customers <small class="muted">({{ customers|length }})</small></h1>
-  <div class="actions"><a class="btn primary" href="{{ url_for('main.customer_form') }}">+ Add customer</a></div>
+  <div class="actions">{% if can('customers', 'edit') %}<a class="btn primary" href="{{ url_for('main.customer_form') }}">+ Add customer</a>{% endif %}</div>
 </div>
 <form class="filters" method="get">
   <input name="q" value="{{ q }}" placeholder="Search name, phone, email, city or GSTIN">
@@ -19,7 +19,7 @@
         <td>{% if c.email %}<a href="mailto:{{ c.email }}">{{ c.email }}</a>{% endif %}</td>
         <td>{% if c.phone %}<a href="tel:{{ c.phone|replace(' ', '') }}">{{ c.phone }}</a>{% endif %}</td>
         <td>{{ c.city }}</td>
-        <td class="num"><a href="{{ url_for('main.customer_form', cid=c.id) }}">Edit</a></td></tr>
+        <td class="num">{% if can('customers', 'edit') %}<a href="{{ url_for('main.customer_form', cid=c.id) }}">Edit</a>{% endif %}</td></tr>
   {% else %}
     <tr><td colspan="6" class="muted">No customers yet.</td></tr>
   {% endfor %}

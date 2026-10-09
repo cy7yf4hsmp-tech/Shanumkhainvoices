@@ -22,6 +22,13 @@
   <tbody>
   {% for i in invoices %}
     {% set fid = 'd' ~ i.id %}
+    {% if not can('dispatch', 'edit') %}
+    <tr>
+      <td><a href="{{ url_for('main.invoice_view', iid=i.id) }}" class="nowrap">{{ i.number }}</a></td><td>{{ i.date }}</td><td>{{ i.customer_name }}</td>
+      <td><span class="badge {{ i.dispatch_status }}">{{ 'Dispatched' if i.dispatch_status == 'dispatched' else 'Not dispatched' }}</span></td>
+      <td>{{ i.transport_type }}</td><td>{{ i.vehicle_no }}</td><td>{{ i.dispatch_date }}</td><td></td>
+    </tr>
+    {% else %}
     <tr>
       <td><a href="{{ url_for('main.invoice_view', iid=i.id) }}" class="nowrap">{{ i.number }}</a></td>
       <td>{{ i.date }}</td>
@@ -42,13 +49,14 @@
       <td><input name="vehicle_no" form="{{ fid }}" value="{{ i.vehicle_no or '' }}" size="10" placeholder="AP 16 XX 1234"></td>
       <td><input type="date" name="dispatch_date" form="{{ fid }}" value="{{ i.dispatch_date or '' }}"></td>
       <td>
-        <form id="{{ fid }}" method="post" action="{{ url_for('main.dispatch_update', iid=i.id) }}">
+        <form id="{{ fid }}" method="post" action="{{ url_for('main.dispatch_update', iid=i.id) }}">{{ csrf_field() }}
           <input type="hidden" name="dispatch_note" value="{{ i.dispatch_note or '' }}">
           <input type="hidden" name="next" value="{{ request.full_path }}">
           <button class="btn small primary">Save</button>
         </form>
       </td>
     </tr>
+    {% endif %}
   {% else %}
     <tr><td colspan="8" class="muted">No printed invoices{{ ' match this filter' if status or q }}. Open an invoice and click “Print / Save PDF” to send it to dispatch.</td></tr>
   {% endfor %}

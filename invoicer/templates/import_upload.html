@@ -2,7 +2,7 @@
 {% block title %}Upload stock file{% endblock %}
 {% block content %}
 <h1>Update stock from a file</h1>
-<form method="post" enctype="multipart/form-data" class="card form">
+<form method="post" enctype="multipart/form-data" class="card form">{{ csrf_field() }}
   <div class="dropzone">
     <p><b>Choose a purchase bill, supplier invoice or stock list</b></p>
     <input type="file" name="file" accept=".pdf,.xlsx,.xlsm,.xls,.docx,.csv" required>

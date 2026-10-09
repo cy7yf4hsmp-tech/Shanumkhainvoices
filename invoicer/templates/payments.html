@@ -19,7 +19,7 @@
 <div class="table-scroll card" style="padding:0">
 <table>
   <thead><tr><th>Customer name</th><th>Invoice no.</th><th class="num">Invoice amount</th><th class="num">Amount due</th>
-    <th>Status</th><th>Due date</th><th>Days remaining</th><th>Record payment</th></tr></thead>
+    <th>Status</th><th>Due date</th><th>Days remaining</th>{% if can('payments', 'edit') %}<th>Record payment</th>{% endif %}</tr></thead>
   <tbody>
   {% for it in items %}
     {% set inv = it.inv %}
@@ -36,12 +36,12 @@
           {% elif it.days_left > 0 %}{{ it.days_left }} day{{ '' if it.days_left == 1 else 's' }} left
           {% elif it.days_left == 0 %}<b class="warn">Due today</b>
           {% else %}<b class="bad">Overdue by {{ -it.days_left }} day{{ '' if it.days_left == -1 else 's' }}</b>{% endif %}</td>
-      <td>{% if inv.status != 'paid' %}
-        <form method="post" action="{{ url_for('main.invoice_pay', iid=inv.id) }}" class="inline-form" style="flex-wrap:nowrap">
+      {% if can('payments', 'edit') %}<td>{% if inv.status != 'paid' %}
+        <form method="post" action="{{ url_for('main.invoice_pay', iid=inv.id) }}" class="inline-form" style="flex-wrap:nowrap">{{ csrf_field() }}
           <input type="hidden" name="next" value="{{ request.full_path }}">
           <input type="number" name="amount" step="0.01" min="0.01" value="{{ '%.2f'|format(it.due) }}" style="width:110px">
           <button class="btn small primary">Received</button>
-        </form>{% endif %}</td>
+        </form>{% endif %}</td>{% endif %}
     </tr>
   {% else %}
     <tr><td colspan="8" class="muted">{{ 'No pending payments.' if status == 'pending' else 'Nothing to show.' }}</td></tr>

@@ -639,8 +639,9 @@ def expenses():
         if data["amount"] <= 0:
             flash("Enter an amount greater than zero", "error")
         else:
-            db.execute("INSERT INTO expenses (date, category, amount, paid_to, payment_mode, note) "
-                       "VALUES (:date, :category, :amount, :paid_to, :payment_mode, :note)", data)
+            db.execute("INSERT INTO expenses (date, category, amount, paid_to, payment_mode, note, created_by) "
+                       "VALUES (:date, :category, :amount, :paid_to, :payment_mode, :note, :created_by)",
+                       data | {"created_by": services.current_user_name()})
             db.commit()
             flash("Expense recorded", "success")
             return redirect(url_for("main.expenses", month=data["date"][:7]))
@@ -823,8 +824,9 @@ def loan_form(lid=None):
         else:
             lid = db.execute(
                 "INSERT INTO loans (date, lender_type, lender_name, amount, interest_rate, tenure_months, purpose, "
-                "note, status) VALUES (:date, :lender_type, :lender_name, :amount, :interest_rate, :tenure_months, "
-                ":purpose, :note, :status)", data).lastrowid
+                "note, status, created_by) VALUES (:date, :lender_type, :lender_name, :amount, :interest_rate, "
+                ":tenure_months, :purpose, :note, :status, :created_by)",
+                data | {"created_by": services.current_user_name()}).lastrowid
         _save_shares(db, lid, shares)
         db.commit()
         flash("Loan saved", "success")
