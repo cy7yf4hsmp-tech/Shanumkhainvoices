@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}Loans{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>Loans</h1>
+  <div class="actions"><a class="btn primary" href="{{ url_for('main.loan_form') }}">+ Record a loan</a></div>
+</div>
+
+<div class="tiles">
+  <div class="tile"><span>Active loans taken</span><strong>₹{{ totals.taken|inr }}</strong></div>
+  <div class="tile"><span>Repaid so far</span><strong>₹{{ totals.repaid|inr }}</strong></div>
+  <div class="tile"><span>Outstanding</span><strong class="{{ 'warn' if totals.outstanding > 0 }}">₹{{ totals.outstanding|inr }}</strong></div>
+</div>
+
+<form class="filters" method="get">
+  <select name="type">
+    <option value="">All lenders</option>
+    {% for key, label in lender_types.items() %}<option value="{{ key }}" {{ 'selected' if lender_type == key }}>{{ label }}</option>{% endfor %}
+  </select>
+  <button class="btn">Filter</button>
+</form>
+
+<table class="card">
+  <thead><tr><th>Date</th><th>Taken from</th><th>Lender</th><th>Shared by</th><th class="num">Amount</th>
+    <th class="num">Interest</th><th class="num">Outstanding</th><th>Status</th></tr></thead>
+  <tbody>
+  {% for l in loans %}
+    <tr><td>{{ l.date }}</td><td>{{ lender_types[l.lender_type] }}</td>
+        <td><a href="{{ url_for('main.loan_detail', lid=l.id) }}">{{ l.lender_name }}</a></td>
+        <td>{{ l.people or '' }}</td>
+        <td class="num">₹{{ l.amount|inr }}</td>
+        <td class="num">{% if l.interest_rate %}{{ l.interest_rate|qty }}%{% endif %}</td>
+        <td class="num">₹{{ (l.amount - l.repaid)|inr }}</td>
+        <td><span class="badge {{ l.status }}">{{ l.status }}</span></td></tr>
+  {% else %}
+    <tr><td colspan="8" class="muted">No loans recorded yet.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+{% if people %}
+<section class="card">
+  <h2>Each person's share (active loans)</h2>
+  <table>
+    <thead><tr><th>Person</th><th class="num">Loans</th><th class="num">Total share</th></tr></thead>
+    <tbody>
+    {% for p in people %}<tr><td>{{ p.person }}</td><td class="num">{{ p.loans }}</td><td class="num">₹{{ p.amount|inr }}</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endif %}
+{% endblock %}

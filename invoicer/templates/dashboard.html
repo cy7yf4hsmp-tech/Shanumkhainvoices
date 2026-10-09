@@ -7,7 +7,8 @@
   <div class="tile"><span>Sales this month</span><strong>₹{{ stats.month|inr }}</strong></div>
   <div class="tile"><span>Outstanding (unpaid)</span><strong class="{{ 'warn' if stats.outstanding }}">₹{{ stats.outstanding|inr }}</strong></div>
   <div class="tile"><span>Stock value (at cost)</span><strong>₹{{ stats.stock_value|inr }}</strong></div>
-  <div class="tile"><span>Active products</span><strong>{{ stats.products }}</strong></div>
+  <div class="tile"><span>Expenses this month</span><strong>₹{{ stats.expenses|inr }}</strong></div>
+  <a class="tile" href="{{ url_for('main.dispatch', status='not_dispatched') }}"><span>Waiting for dispatch</span><strong class="{{ 'warn' if stats.to_dispatch }}">{{ stats.to_dispatch }}</strong></a>
 </div>
 
 <div class="grid2">

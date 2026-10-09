@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Edit' if lid else 'Record' }} loan{% endblock %}
+{% block content %}
+<h1>{{ 'Edit loan' if lid else 'Record a loan' }}</h1>
+<form method="post" class="form" id="loan-form">
+  <section class="card">
+    <h2>Loan details</h2>
+    <div class="row">
+      <label>Date taken<input type="date" name="date" value="{{ loan.date }}" required></label>
+      <label>Taken from
+        <select name="lender_type">
+          {% for key, label in lender_types.items() %}<option value="{{ key }}" {{ 'selected' if loan.lender_type == key }}>{{ label }}</option>{% endfor %}
+        </select>
+      </label>
+      <label>Bank / lender name *<input name="lender_name" value="{{ loan.lender_name or '' }}" required placeholder="e.g. SBI, HDFC, Ramesh garu"></label>
+    </div>
+    <div class="row">
+      <label>Loan amount (₹) *<input type="number" name="amount" id="loan-amount" step="0.01" min="0.01" value="{{ loan.amount or '' }}" required></label>
+      <label>Interest rate (% per year)<input type="number" name="interest_rate" step="0.01" min="0" value="{{ loan.interest_rate or '' }}"></label>
+      <label>Tenure (months)<input type="number" name="tenure_months" min="0" value="{{ loan.tenure_months or '' }}"></label>
+    </div>
+    <div class="row">
+      <label>Purpose<input name="purpose" value="{{ loan.purpose or '' }}" placeholder="e.g. Stock purchase"></label>
+      <label>Status
+        <select name="status">
+          <option value="active" {{ 'selected' if loan.status != 'closed' }}>Active</option>
+          <option value="closed" {{ 'selected' if loan.status == 'closed' }}>Closed (fully repaid)</option>
+        </select>
+      </label>
+    </div>
+    <label>Note<textarea name="note" rows="2">{{ loan.note or '' }}</textarea></label>
+  </section>
+
+  <section class="card">
+    <h2>Shares: who took how much of this loan</h2>
+    <p class="muted small">Leave empty if the loan is not shared.</p>
+    <div class="share-rows" id="share-rows">
+      {% for sh in (shares|list) + [{'person': '', 'amount': ''}] * (2 if shares else 3) %}
+      <div class="row">
+        <label>Person<input name="share_person" value="{{ sh.person }}"></label>
+        <label>Share amount (₹)<input type="number" name="share_amount" class="share-amount" step="0.01" min="0" value="{{ sh.amount }}"></label>
+        <label>Share %<input class="share-pct" readonly tabindex="-1"></label>
+      </div>
+      {% endfor %}
+    </div>
+    <button type="button" class="btn" id="add-share">+ Add person</button>
+    <p id="share-total" class="muted"></p>
+  </section>
+
+  <div class="actions">
+    <button class="btn primary big">Save loan</button>
+    <a class="btn" href="{{ url_for('main.loan_detail', lid=lid) if lid else url_for('main.loans') }}">Cancel</a>
+  </div>
+</form>
+{% endblock %}
+{% block scripts %}
+<script>
+(function () {
+  const rows = document.getElementById('share-rows');
+  const loanAmt = document.getElementById('loan-amount');
+  const out = document.getElementById('share-total');
+  const fmt = n => n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  function update() {
+    const total = parseFloat(loanAmt.value) || 0;
+    let sum = 0;
+    rows.querySelectorAll('.row').forEach(r => {
+      const a = parseFloat(r.querySelector('.share-amount').value) || 0;
+      sum += a;
+      r.querySelector('.share-pct').value = total && a ? (a / total * 100).toFixed(1) + '%' : '';
+    });
+    const left = total - sum;
+    out.textContent = sum ? `Shares total ₹${fmt(sum)} of ₹${fmt(total)}` + (Math.abs(left) > 0.005 ? (left > 0 ? ` · ₹${fmt(left)} not assigned` : ` · ₹${fmt(-left)} more than the loan!`) : ' · fully assigned') : '';
+    out.className = left < -0.005 ? 'bad' : 'muted';
+  }
+  document.getElementById('add-share').addEventListener('click', () => {
+    const r = rows.querySelector('.row').cloneNode(true);
+    r.querySelectorAll('input').forEach(i => i.value = '');
+    rows.appendChild(r);
+    r.querySelector('input').focus();
+  });
+  document.getElementById('loan-form').addEventListener('input', update);
+  update();
+})();
+</script>
+{% endblock %}

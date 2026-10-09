@@ -30,6 +30,7 @@
       row.querySelector('.gst').value = String(line.gst_rate);
     }
     sel.addEventListener('change', () => applyProduct(row));
+    toggleCustomName(row);
     row.querySelector('.remove').addEventListener('click', () => {
       row.remove();
       if (!tbody.children.length) addRow();
@@ -42,8 +43,17 @@
     return row;
   }
 
+  // The item name box is only shown for custom (non-stock) items
+  function toggleCustomName(row) {
+    const custom = !row.querySelector('.product').value;
+    const name = row.querySelector('.description');
+    name.hidden = !custom;
+  }
+
   function applyProduct(row) {
     const p = productsById[row.querySelector('.product').value];
+    toggleCustomName(row);
+    if (!p) row.querySelector('.description').value = '';
     if (p) {
       row.querySelector('.description').value = p.name;
       row.querySelector('.hsn').value = p.hsn || '';
@@ -65,14 +75,15 @@
   }
 
   function recalc() {
-    let subtotal = 0, discount = 0, tax = 0;
+    let subtotal = 0, discount = 0, tax = 0, taxableTotal = 0;
     tbody.querySelectorAll('tr').forEach(row => {
       const gross = round2(num(row.querySelector('.qty')) * num(row.querySelector('.price')));
       const disc = round2(gross * num(row.querySelector('.disc')) / 100);
       const taxable = round2(gross - disc);
       const t = round2(taxable * num(row.querySelector('.gst')) / 100);
+      row.querySelector('.taxable').textContent = fmt(taxable);
       row.querySelector('.amount').textContent = fmt(taxable + t);
-      subtotal += gross; discount += disc; tax += t;
+      subtotal += gross; discount += disc; tax += t; taxableTotal += taxable;
       updateStockHint(row);
     });
     const exact = round2(subtotal - discount + tax);
@@ -81,7 +92,8 @@
     document.querySelectorAll('.totals .intra').forEach(el => el.hidden = inter);
     document.querySelectorAll('.totals .inter').forEach(el => el.hidden = !inter);
     document.getElementById('t-subtotal').textContent = fmt(subtotal);
-    document.getElementById('t-discount').textContent = '-' + fmt(discount);
+    document.getElementById('t-discount').textContent = (discount ? '-' : '') + fmt(discount);
+    document.getElementById('t-taxable').textContent = fmt(taxableTotal);
     document.getElementById('t-cgst').textContent = fmt(tax / 2);
     document.getElementById('t-sgst').textContent = fmt(tax / 2);
     document.getElementById('t-igst').textContent = fmt(tax);
@@ -100,6 +112,19 @@
     saveWrap.hidden = !!c;
   });
   saveWrap.hidden = !!custSel.value;
+
+  // Ship-to address mirrors the bill-to address while "same as" is ticked
+  const billAddr = document.getElementById('customer_address');
+  const shipAddr = document.getElementById('ship_to_address');
+  const shipSame = document.getElementById('ship_same');
+  function syncShipTo() {
+    shipAddr.readOnly = shipSame.checked;
+    if (shipSame.checked) shipAddr.value = billAddr.value;
+  }
+  shipSame.addEventListener('change', () => { syncShipTo(); if (!shipSame.checked) shipAddr.focus(); });
+  billAddr.addEventListener('input', syncShipTo);
+  custSel.addEventListener('change', syncShipTo);
+  syncShipTo();
 
   taxType.addEventListener('change', recalc);
   document.getElementById('add-row').addEventListener('click', () => addRow().querySelector('.product').focus());

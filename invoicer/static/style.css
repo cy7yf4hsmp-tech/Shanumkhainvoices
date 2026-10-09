@@ -125,3 +125,22 @@ label.check input { width: auto; }
   .topbar nav a { padding: 4px 8px; }
   table.card { display: block; overflow-x: auto; }
 }
+
+.parties { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+.field { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 180px; margin-bottom: 12px; font-weight: 500; }
+.field-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.field-head label.check { margin: 0; }
+textarea[readonly] { background: #f4f6f9; color: var(--muted); }
+th .hint { font-size: 10px; text-transform: none; letter-spacing: 0; font-weight: 400; }
+table.items td.taxable, table.items td.amount { padding-top: 12px; white-space: nowrap; }
+.badge.dispatched { background: #e3f4ea; color: var(--good); }
+.badge.not_dispatched { background: #fff1db; color: #9a6100; }
+.badge.active { background: #e4edfb; color: var(--brand); }
+.badge.closed { background: #eef0f4; color: var(--muted); }
+table.dispatch td { vertical-align: middle; }
+table.dispatch input, table.dispatch select { padding: 5px 6px; }
+.dispatch-form { display: contents; }
+.share-rows .row { align-items: flex-end; }
+.share-rows .row label { margin-bottom: 8px; }
+a.tile { color: inherit; }
+a.tile:hover { text-decoration: none; border-color: var(--brand); }

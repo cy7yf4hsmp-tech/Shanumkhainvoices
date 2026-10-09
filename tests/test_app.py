@@ -124,3 +124,91 @@ def test_formatting_helpers():
     assert inr(999) == "999.00"
     assert amount_in_words(354) == "Rupees Three Hundred Fifty Four Only"
     assert amount_in_words(1250000.25) == "Rupees Twelve Lakh Fifty Thousand and Twenty Five Paise Only"
+
+
+def test_new_pages_render(client):
+    for url in ["/dispatch", "/expenses", "/loans", "/loans/new"]:
+        assert client.get(url).status_code == 200, url
+
+
+def test_invoice_list_shows_open_by_default(client):
+    add_product(client)
+    client.post("/invoices/new", data=invoice_data(qty=["1"], customer_name="Open Co"))
+    client.post("/invoices/new", data=invoice_data(qty=["1"], customer_name="Paid Co", amount_paid="118"))
+    page = client.get("/invoices").data
+    assert b"Open Co" in page and b"Paid Co" not in page
+    page = client.get("/invoices?status=all").data
+    assert b"Open Co" in page and b"Paid Co" in page
+
+
+def test_ship_to_address(client, app):
+    add_product(client)
+    client.post("/invoices/new", data=invoice_data(qty=["1"], customer_address="Bill St", ship_same="1",
+                                                   ship_to_address="ignored"))
+    client.post("/invoices/new", data=invoice_data(qty=["1"], customer_address="Bill St",
+                                                   ship_to_address="Godown, Ring Road"))
+    with app.app_context():
+        rows = [r[0] for r in get_db().execute("SELECT ship_to_address FROM invoices ORDER BY id")]
+    assert rows == ["Bill St", "Godown, Ring Road"]
+    assert b"Godown, Ring Road" in client.get("/invoices/2").data
+
+
+def test_item_name_comes_from_product(client, app):
+    add_product(client)
+    client.post("/invoices/new", data=invoice_data(description=[""]))
+    with app.app_context():
+        assert get_db().execute("SELECT description FROM invoice_items").fetchone()[0] == "Widget"
+
+
+def test_printed_invoices_appear_in_dispatch(client, app):
+    add_product(client)
+    client.post("/invoices/new", data=invoice_data(qty=["1"]))
+    assert b"INV-0001" not in client.get("/dispatch").data
+    client.get("/invoices/1/print")
+    assert b"INV-0001" in client.get("/dispatch").data
+    client.post("/dispatch/1", data={"dispatch_status": "dispatched", "transport_type": "Auto"})
+    with app.app_context():
+        row = get_db().execute("SELECT dispatch_status, transport_type, dispatch_date FROM invoices").fetchone()
+    assert row["dispatch_status"] == "dispatched" and row["transport_type"] == "Auto" and row["dispatch_date"]
+    assert b"INV-0001" not in client.get("/dispatch?status=not_dispatched").data
+
+
+def test_expenses(client, app):
+    client.post("/expenses", data={"date": "2026-10-05", "category": "Auto", "amount": "150"})
+    client.post("/expenses", data={"date": "2026-10-06", "category": "Transportation", "amount": "2000"})
+    client.post("/expenses", data={"date": "2026-10-06", "category": "Other", "amount": "0"})  # rejected
+    page = client.get("/expenses?month=2026-10").data
+    assert b"2,150.00" in page
+    client.post("/expenses/1/delete")
+    with app.app_context():
+        assert get_db().execute("SELECT COUNT(*) FROM expenses").fetchone()[0] == 1
+
+
+def test_loans_with_shares_and_repayments(client, app):
+    resp = client.post("/loans/new", data={
+        "date": "2026-10-01", "lender_type": "bank", "lender_name": "SBI", "amount": "500000",
+        "interest_rate": "10.5", "share_person": ["Ravi", "Suresh", ""], "share_amount": ["300000", "200000", ""],
+    }, follow_redirects=True)
+    assert b"SBI" in resp.data and b"60.0%" in resp.data
+    client.post("/loans/1/repay", data={"date": "2026-10-09", "amount": "25000"})
+    page = client.get("/loans").data
+    assert b"4,75,000.00" in page and b"Ravi" in page
+    # shares that add up to more than the loan are refused
+    resp = client.post("/loans/new", data={"lender_type": "person", "lender_name": "Ramesh", "amount": "1000",
+                                           "share_person": ["A"], "share_amount": ["5000"]})
+    assert b"more than the loan amount" in resp.data
+    with app.app_context():
+        assert get_db().execute("SELECT COUNT(*) FROM loans").fetchone()[0] == 1
+
+
+def test_old_database_is_upgraded(tmp_path):
+    import sqlite3
+    path = tmp_path / "old.sqlite3"
+    con = sqlite3.connect(path)
+    con.execute("CREATE TABLE invoices (id INTEGER PRIMARY KEY, number TEXT, date TEXT, customer_name TEXT)")
+    con.commit()
+    con.close()
+    app = create_app({"TESTING": True, "DATABASE": str(path)})
+    with app.app_context():
+        cols = {r["name"] for r in get_db().execute("PRAGMA table_info(invoices)")}
+    assert {"ship_to_address", "printed_at", "dispatch_status", "transport_type"} <= cols

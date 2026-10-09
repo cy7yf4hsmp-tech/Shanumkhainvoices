@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Expenses{% endblock %}
+{% block content %}
+<h1>Expenses</h1>
+
+<section class="card">
+  <h2>Record an expense</h2>
+  <form method="post" class="form">
+    <div class="row">
+      <label>Date<input type="date" name="date" value="{{ today }}" required></label>
+      <label>Type
+        <select name="category">{% for c in categories %}<option>{{ c }}</option>{% endfor %}</select>
+      </label>
+      <label>Amount (₹)<input type="number" name="amount" step="0.01" min="0.01" required></label>
+      <label>Paid to<input name="paid_to" placeholder="Auto driver, transporter, shop…"></label>
+      <label>Paid by
+        <select name="payment_mode">{% for m in modes %}<option>{{ m }}</option>{% endfor %}</select>
+      </label>
+    </div>
+    <div class="row">
+      <label>Note<input name="note" placeholder="e.g. Delivery to Guntur for INV-0003"></label>
+    </div>
+    <div class="actions"><button class="btn primary">Save expense</button></div>
+  </form>
+</section>
+
+<form class="filters" method="get">
+  <label>Month <input type="month" name="month" value="{{ month }}"></label>
+  <select name="category">
+    <option value="">All types</option>
+    {% for c in categories %}<option {{ 'selected' if category == c }}>{{ c }}</option>{% endfor %}
+  </select>
+  <button class="btn">Show</button>
+  <a href="{{ url_for('main.expenses', month='') }}">All months</a>
+</form>
+
+<div class="tiles">
+  <div class="tile"><span>Total {{ 'for ' ~ month if month else '(all time)' }}</span><strong>₹{{ total|inr }}</strong></div>
+  {% for cat, amt in by_category[:4] %}
+    <div class="tile"><span>{{ cat }}</span><strong>₹{{ amt|inr }}</strong></div>
+  {% endfor %}
+</div>
+
+<table class="card">
+  <thead><tr><th>Date</th><th>Type</th><th>Paid to</th><th>Paid by</th><th>Note</th><th class="num">Amount</th><th></th></tr></thead>
+  <tbody>
+  {% for e in expenses %}
+    <tr><td>{{ e.date }}</td><td><span class="badge">{{ e.category }}</span></td><td>{{ e.paid_to }}</td>
+        <td>{{ e.payment_mode }}</td><td>{{ e.note }}</td><td class="num">₹{{ e.amount|inr }}</td>
+        <td class="num actions" style="justify-content:flex-end">
+          <a href="{{ url_for('main.expense_edit', eid=e.id) }}">Edit</a>
+          <form method="post" action="{{ url_for('main.expense_delete', eid=e.id) }}" onsubmit="return confirm('Delete this expense?')">
+            <button class="btn small danger" title="Delete">✕</button>
+          </form>
+        </td></tr>
+  {% else %}
+    <tr><td colspan="7" class="muted">No expenses recorded{{ ' for this period' if month or category }}.</td></tr>
+  {% endfor %}
+  </tbody>
+  {% if expenses %}<tfoot><tr><th colspan="5">Total</th><th class="num">₹{{ total|inr }}</th><th></th></tr></tfoot>{% endif %}
+</table>
+{% endblock %}

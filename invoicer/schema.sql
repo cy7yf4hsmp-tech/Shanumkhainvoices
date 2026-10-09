@@ -39,6 +39,7 @@ CREATE TABLE IF NOT EXISTS invoices (
     customer_address TEXT DEFAULT '',
     customer_phone   TEXT DEFAULT '',
     customer_gstin   TEXT DEFAULT '',
+    ship_to_address  TEXT DEFAULT '',
     tax_type         TEXT NOT NULL DEFAULT 'intra',  -- intra (CGST+SGST) | inter (IGST)
     subtotal         REAL NOT NULL DEFAULT 0,
     discount         REAL NOT NULL DEFAULT 0,
@@ -48,6 +49,12 @@ CREATE TABLE IF NOT EXISTS invoices (
     amount_paid      REAL NOT NULL DEFAULT 0,
     status           TEXT NOT NULL DEFAULT 'unpaid',  -- unpaid | partial | paid | cancelled
     notes            TEXT DEFAULT '',
+    printed_at       TEXT,
+    dispatch_status  TEXT NOT NULL DEFAULT 'not_dispatched',  -- not_dispatched | dispatched
+    dispatch_date    TEXT DEFAULT '',
+    transport_type   TEXT DEFAULT '',
+    vehicle_no       TEXT DEFAULT '',
+    dispatch_note    TEXT DEFAULT '',
     created_at       TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -79,3 +86,44 @@ CREATE TABLE IF NOT EXISTS stock_movements (
 
 CREATE INDEX IF NOT EXISTS idx_items_invoice ON invoice_items(invoice_id);
 CREATE INDEX IF NOT EXISTS idx_moves_product ON stock_movements(product_id);
+
+CREATE TABLE IF NOT EXISTS expenses (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    date         TEXT NOT NULL,
+    category     TEXT NOT NULL,      -- Auto | Transportation | Other ...
+    amount       REAL NOT NULL,
+    paid_to      TEXT DEFAULT '',
+    payment_mode TEXT DEFAULT '',
+    invoice_id   INTEGER REFERENCES invoices(id),
+    note         TEXT DEFAULT '',
+    created_at   TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS loans (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    date          TEXT NOT NULL,
+    lender_type   TEXT NOT NULL,     -- bank | personal_loan | person
+    lender_name   TEXT NOT NULL,
+    amount        REAL NOT NULL,
+    interest_rate REAL NOT NULL DEFAULT 0,
+    tenure_months INTEGER,
+    purpose       TEXT DEFAULT '',
+    note          TEXT DEFAULT '',
+    status        TEXT NOT NULL DEFAULT 'active',  -- active | closed
+    created_at    TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS loan_shares (
+    id      INTEGER PRIMARY KEY AUTOINCREMENT,
+    loan_id INTEGER NOT NULL REFERENCES loans(id) ON DELETE CASCADE,
+    person  TEXT NOT NULL,
+    amount  REAL NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS loan_repayments (
+    id      INTEGER PRIMARY KEY AUTOINCREMENT,
+    loan_id INTEGER NOT NULL REFERENCES loans(id) ON DELETE CASCADE,
+    date    TEXT NOT NULL,
+    amount  REAL NOT NULL,
+    note    TEXT DEFAULT ''
+);

@@ -17,21 +17,29 @@
     </div>
   </header>
 
-  <section class="bill-to">
-    <div class="label">Bill to</div>
-    <div><b>{{ inv.customer_name }}</b></div>
-    <div class="pre">{{ inv.customer_address }}</div>
-    {% if inv.customer_phone %}<div>Phone: {{ inv.customer_phone }}</div>{% endif %}
-    {% if inv.customer_gstin %}<div>GSTIN: {{ inv.customer_gstin }}</div>{% endif %}
+  <section class="parties">
+    <div class="bill-to">
+      <div class="label">Bill to</div>
+      <div><b>{{ inv.customer_name }}</b></div>
+      <div class="pre">{{ inv.customer_address }}</div>
+      {% if inv.customer_phone %}<div>Phone: {{ inv.customer_phone }}</div>{% endif %}
+      {% if inv.customer_gstin %}<div>GSTIN: {{ inv.customer_gstin }}</div>{% endif %}
+    </div>
+    <div class="bill-to">
+      <div class="label">Ship to</div>
+      <div><b>{{ inv.customer_name }}</b></div>
+      <div class="pre">{{ inv.ship_to_address or inv.customer_address }}</div>
+      {% if inv.transport_type %}<div>Transport: {{ inv.transport_type }}{% if inv.vehicle_no %} · {{ inv.vehicle_no }}{% endif %}</div>{% endif %}
+    </div>
   </section>
 
   <table class="inv-items">
-    <thead><tr><th>#</th><th>Description</th><th>HSN</th><th class="num">Qty</th><th class="num">Rate</th>
+    <thead><tr><th>#</th><th>Item</th><th>HSN</th><th>UOM</th><th class="num">Qty</th><th class="num">Rate</th>
       <th class="num">Disc</th><th class="num">Taxable</th><th class="num">GST</th><th class="num">Amount</th></tr></thead>
     <tbody>
     {% for it in items %}
       <tr><td>{{ loop.index }}</td><td>{{ it.description }}</td><td>{{ it.hsn }}</td>
-          <td class="num">{{ it.qty|qty }} {{ it.unit }}</td><td class="num">{{ it.price|inr }}</td>
+          <td>{{ it.unit }}</td><td class="num">{{ it.qty|qty }}</td><td class="num">{{ it.price|inr }}</td>
           <td class="num">{% if it.discount_pct %}{{ it.discount_pct|qty }}%{% endif %}</td>
           <td class="num">{{ it.taxable|inr }}</td><td class="num">{{ it.gst_rate|qty }}%</td>
           <td class="num">{{ (it.taxable + it.tax)|inr }}</td></tr>

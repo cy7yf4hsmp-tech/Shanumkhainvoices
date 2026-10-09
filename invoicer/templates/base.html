@@ -10,13 +10,18 @@
 <header class="topbar">
   <a class="brand" href="{{ url_for('main.dashboard') }}">{{ settings.business_name }}</a>
   <nav>
-    {% set ep = request.endpoint or '' %}
-    <a href="{{ url_for('main.dashboard') }}" class="{{ 'on' if ep == 'main.dashboard' }}">Dashboard</a>
-    <a href="{{ url_for('main.invoices') }}" class="{{ 'on' if 'invoice' in ep }}">Invoices</a>
-    <a href="{{ url_for('main.products') }}" class="{{ 'on' if 'product' in ep }}">Products</a>
-    <a href="{{ url_for('main.stock_ledger') }}" class="{{ 'on' if 'stock' in ep }}">Stock ledger</a>
-    <a href="{{ url_for('main.customers') }}" class="{{ 'on' if 'customer' in ep }}">Customers</a>
-    <a href="{{ url_for('main.settings_page') }}" class="{{ 'on' if 'settings' in ep }}">Settings</a>
+    {% macro nav(endpoint, label, prefixes) -%}
+      <a href="{{ url_for(endpoint) }}" class="{{ 'on' if (request.endpoint or '').split('.')[-1].split('_')[0] in prefixes }}">{{ label }}</a>
+    {%- endmacro %}
+    {{ nav('main.dashboard', 'Dashboard', ['dashboard']) }}
+    {{ nav('main.invoices', 'Invoices', ['invoices', 'invoice']) }}
+    {{ nav('main.dispatch', 'Dispatch', ['dispatch']) }}
+    {{ nav('main.products', 'Products', ['products', 'product']) }}
+    {{ nav('main.stock_ledger', 'Stock ledger', ['stock']) }}
+    {{ nav('main.customers', 'Customers', ['customers', 'customer']) }}
+    {{ nav('main.expenses', 'Expenses', ['expenses', 'expense']) }}
+    {{ nav('main.loans', 'Loans', ['loans', 'loan']) }}
+    {{ nav('main.settings_page', 'Settings', ['settings']) }}
   </nav>
   <a class="btn primary" href="{{ url_for('main.invoice_new') }}">+ New invoice</a>
 </header>

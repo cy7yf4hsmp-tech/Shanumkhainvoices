@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}Loan: {{ loan.lender_name }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>{{ loan.lender_name }} <span class="badge {{ loan.status }}">{{ loan.status }}</span></h1>
+  <div class="actions">
+    <a class="btn" href="{{ url_for('main.loan_form', lid=loan.id) }}">Edit</a>
+    <form method="post" action="{{ url_for('main.loan_delete', lid=loan.id) }}" onsubmit="return confirm('Delete this loan and all its repayments?')">
+      <button class="btn danger">Delete</button>
+    </form>
+  </div>
+</div>
+<div class="tiles">
+  <div class="tile"><span>Taken from</span><strong>{{ lender_types[loan.lender_type] }}</strong></div>
+  <div class="tile"><span>Loan amount</span><strong>₹{{ loan.amount|inr }}</strong></div>
+  <div class="tile"><span>Repaid</span><strong>₹{{ loan.repaid|inr }}</strong></div>
+  <div class="tile"><span>Outstanding</span><strong class="{{ 'warn' if loan.amount - loan.repaid > 0 }}">₹{{ (loan.amount - loan.repaid)|inr }}</strong></div>
+</div>
+<section class="card">
+  <p><b>Date taken:</b> {{ loan.date }}
+    {% if loan.interest_rate %} · <b>Interest:</b> {{ loan.interest_rate|qty }}% per year{% endif %}
+    {% if loan.tenure_months %} · <b>Tenure:</b> {{ loan.tenure_months }} months{% endif %}</p>
+  {% if loan.purpose %}<p><b>Purpose:</b> {{ loan.purpose }}</p>{% endif %}
+  {% if loan.note %}<p class="pre muted">{{ loan.note }}</p>{% endif %}
+</section>
+
+<div class="grid2">
+  <section class="card">
+    <h2>Shares</h2>
+    {% if shares %}
+    {% set assigned = shares|sum(attribute='amount') %}
+    <table>
+      <thead><tr><th>Person</th><th class="num">Share</th><th class="num">%</th></tr></thead>
+      <tbody>
+      {% for s in shares %}<tr><td>{{ s.person }}</td><td class="num">₹{{ s.amount|inr }}</td><td class="num">{{ '%.1f'|format(s.amount / loan.amount * 100) }}%</td></tr>{% endfor %}
+      </tbody>
+      {% if loan.amount - assigned > 0.005 %}<tfoot><tr><td class="muted">Not assigned</td><td class="num muted">₹{{ (loan.amount - assigned)|inr }}</td><td></td></tr></tfoot>{% endif %}
+    </table>
+    {% else %}<p class="muted">Not shared. <a href="{{ url_for('main.loan_form', lid=loan.id) }}">Add shares</a>.</p>{% endif %}
+  </section>
+
+  <section class="card">
+    <h2>Repayments</h2>
+    <form method="post" action="{{ url_for('main.loan_repay', lid=loan.id) }}" class="inline-form" style="margin-bottom:12px">
+      <input type="date" name="date" value="{{ today }}">
+      <input type="number" name="amount" step="0.01" min="0.01" placeholder="Amount ₹" required>
+      <input name="note" placeholder="Note (EMI, interest…)">
+      <button class="btn primary">Add</button>
+    </form>
+    <table>
+      <thead><tr><th>Date</th><th>Note</th><th class="num">Amount</th><th></th></tr></thead>
+      <tbody>
+      {% for r in repayments %}
+        <tr><td>{{ r.date }}</td><td>{{ r.note }}</td><td class="num">₹{{ r.amount|inr }}</td>
+          <td class="num"><form method="post" action="{{ url_for('main.loan_repayment_delete', lid=loan.id, rid=r.id) }}" onsubmit="return confirm('Delete this repayment?')"><button class="btn small danger">✕</button></form></td></tr>
+      {% else %}
+        <tr><td colspan="4" class="muted">No repayments yet.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </section>
+</div>
+{% endblock %}

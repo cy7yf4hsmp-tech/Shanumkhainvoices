@@ -7,6 +7,9 @@ It runs on your own computer (or a small server) and keeps all data in one SQLit
 
 **Invoicing**
 - Create invoices with products from stock or custom items (services, labour, etc.)
+- Separate bill-to and ship-to (delivery) addresses, with a "same as bill to address" tick box
+- Item table: Product, HSN, UOM, Qty, Rate, Disc %, Taxable amount (without GST), GST %, Amount (taxable + GST)
+- The Invoices page shows open (unpaid / part-paid) invoices by default; change the filter to see all
 - GST per item (0 / 0.25 / 3 / 5 / 12 / 18 / 28 %), CGST + SGST for sales within the state or IGST for other states
 - Per-item discount %, automatic rounding to the nearest rupee, amount in words (lakh/crore)
 - Automatic invoice numbering with your own prefix (`INV-0001`, `INV-0002`, ...)
@@ -21,9 +24,24 @@ It runs on your own computer (or a small server) and keeps all data in one SQLit
 - Full stock ledger (every movement with the balance after it) per product and overall
 - Low-stock alerts on the dashboard; stock value at cost; CSV export of current stock
 
+**Dispatch**
+- Every invoice that has been printed appears under Dispatch
+- Shows invoice number, invoice date, dispatch status (Dispatched / Not dispatched), transportation type,
+  vehicle / LR number and dispatch date, all editable in the list
+
+**Expenses**
+- Record expenses such as Auto, Transportation, Fuel, Loading, Rent and Other, with who was paid and how
+- Month and type filters with totals per type
+
+**Loans**
+- Record loans taken from a bank, as a personal loan, or from a person
+- Record each person's share of a loan (amount and %), plus repayments and the outstanding balance
+- Total share per person across all active loans
+
 **Other**
 - Customer list with balance due and invoice history
-- Dashboard: sales today and this month, outstanding amount, stock value, low stock, recent invoices
+- Dashboard: sales today and this month, outstanding amount, stock value, expenses this month,
+  invoices waiting for dispatch, low stock, recent invoices
 - Business settings (name, address, GSTIN, bank/UPI details, terms) printed on every invoice
 
 ## Getting started
@@ -50,6 +68,8 @@ Open http://127.0.0.1:5000 in your browser. Then:
 | `INVOICER_DB`  | `instance/invoicer.sqlite3`  | Where the database file is stored               |
 | `SECRET_KEY`   | `change-me-in-production`    | Set a random value if others can reach the app |
 | `HOST`, `PORT` | `127.0.0.1`, `5000`          | Use `HOST=0.0.0.0` to open it from other devices on your network |
+
+Databases from an older version are upgraded automatically when the app starts.
 
 **Backup:** copy the database file (`instance/invoicer.sqlite3`). That one file holds all your data.
 

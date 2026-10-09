@@ -31,9 +31,28 @@ def close_db(_exc=None):
         db.close()
 
 
+# Columns added after the first version; added to older databases on start-up.
+MIGRATIONS = {
+    "invoices": {
+        "ship_to_address": "TEXT DEFAULT ''",
+        "printed_at": "TEXT",
+        "dispatch_status": "TEXT NOT NULL DEFAULT 'not_dispatched'",
+        "dispatch_date": "TEXT DEFAULT ''",
+        "transport_type": "TEXT DEFAULT ''",
+        "vehicle_no": "TEXT DEFAULT ''",
+        "dispatch_note": "TEXT DEFAULT ''",
+    },
+}
+
+
 def init_db():
     db = get_db()
     db.executescript((Path(__file__).parent / "schema.sql").read_text())
+    for table, columns in MIGRATIONS.items():
+        existing = {r["name"] for r in db.execute(f"PRAGMA table_info({table})")}
+        for name, decl in columns.items():
+            if name not in existing:
+                db.execute(f"ALTER TABLE {table} ADD COLUMN {name} {decl}")
     for key, value in DEFAULT_SETTINGS.items():
         db.execute("INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)", (key, value))
     db.commit()

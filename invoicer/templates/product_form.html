@@ -9,7 +9,7 @@
   </div>
   <div class="row">
     <label>HSN / SAC<input name="hsn" value="{{ product.hsn or '' }}"></label>
-    <label>Unit<input name="unit" value="{{ product.unit or 'pcs' }}" list="units"></label>
+    <label>UOM (unit of measure)<input name="unit" value="{{ product.unit or 'pcs' }}" list="units"></label>
     <datalist id="units"><option>pcs</option><option>kg</option><option>g</option><option>ltr</option><option>m</option><option>box</option><option>set</option><option>nos</option></datalist>
   </div>
   <div class="row">

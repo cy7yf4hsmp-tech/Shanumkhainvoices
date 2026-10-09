@@ -2,33 +2,35 @@
 {% block title %}Invoices{% endblock %}
 {% block content %}
 <div class="page-head">
-  <h1>Invoices</h1>
+  <h1>{{ 'Open invoices' if status == 'open' else 'Invoices' }}</h1>
   <div class="actions"><a class="btn primary" href="{{ url_for('main.invoice_new') }}">+ New invoice</a></div>
 </div>
 <form class="filters" method="get">
   <input name="q" value="{{ q }}" placeholder="Invoice no. or customer">
   <select name="status">
-    <option value="">All statuses</option>
-    {% for s in ['unpaid', 'partial', 'paid', 'cancelled'] %}<option {{ 'selected' if status == s }}>{{ s }}</option>{% endfor %}
+    {% for value, label in [('open', 'Open (unpaid + part-paid)'), ('all', 'All invoices'), ('unpaid', 'Unpaid'), ('partial', 'Part-paid'), ('paid', 'Paid'), ('cancelled', 'Cancelled')] %}
+      <option value="{{ value }}" {{ 'selected' if status == value }}>{{ label }}</option>
+    {% endfor %}
   </select>
   <label>From <input type="date" name="from" value="{{ request.args.get('from', '') }}"></label>
   <label>To <input type="date" name="to" value="{{ request.args.get('to', '') }}"></label>
   <button class="btn">Filter</button>
 </form>
 <table class="card">
-  <thead><tr><th>No.</th><th>Date</th><th>Customer</th><th class="num">Total</th><th class="num">Due</th><th>Status</th></tr></thead>
+  <thead><tr><th>No.</th><th>Date</th><th>Customer</th><th class="num">Total</th><th class="num">Due</th><th>Status</th><th>Dispatch</th></tr></thead>
   <tbody>
   {% for i in invoices %}
     <tr><td><a href="{{ url_for('main.invoice_view', iid=i.id) }}">{{ i.number }}</a></td><td>{{ i.date }}</td>
         <td>{{ i.customer_name }}</td><td class="num">₹{{ i.total|inr }}</td>
         <td class="num">{% if i.status in ('unpaid', 'partial') %}₹{{ (i.total - i.amount_paid)|inr }}{% endif %}</td>
-        <td><span class="badge {{ i.status }}">{{ i.status }}</span></td></tr>
+        <td><span class="badge {{ i.status }}">{{ i.status }}</span></td>
+        <td>{% if i.status != 'cancelled' %}{% if i.dispatch_status == 'dispatched' %}<span class="badge dispatched">Dispatched</span>{% elif i.printed_at %}<span class="badge not_dispatched">Not dispatched</span>{% else %}<span class="muted small">Not printed</span>{% endif %}{% endif %}</td></tr>
   {% else %}
-    <tr><td colspan="6" class="muted">No invoices found.</td></tr>
+    <tr><td colspan="7" class="muted">{{ 'No open invoices. Everything is paid.' if status == 'open' else 'No invoices found.' }}</td></tr>
   {% endfor %}
   </tbody>
   {% if invoices %}
-  <tfoot><tr><th colspan="3">Totals (excluding cancelled)</th><th class="num">₹{{ totals.total|inr }}</th><th class="num">₹{{ totals.due|inr }}</th><th></th></tr></tfoot>
+  <tfoot><tr><th colspan="3">Totals (excluding cancelled)</th><th class="num">₹{{ totals.total|inr }}</th><th class="num">₹{{ totals.due|inr }}</th><th colspan="2"></th></tr></tfoot>
   {% endif %}
 </table>
 {% endblock %}

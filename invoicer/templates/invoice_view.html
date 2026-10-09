@@ -21,5 +21,23 @@
   </form>
 </section>
 {% endif %}
+{% if inv.printed_at and inv.status != 'cancelled' %}
+<section class="card">
+  <h2>Dispatch</h2>
+  <form method="post" action="{{ url_for('main.dispatch_update', iid=inv.id) }}" class="inline-form">
+    <input type="hidden" name="next" value="{{ url_for('main.invoice_view', iid=inv.id) }}">
+    <select name="dispatch_status">
+      <option value="not_dispatched" {{ 'selected' if inv.dispatch_status != 'dispatched' }}>Not dispatched</option>
+      <option value="dispatched" {{ 'selected' if inv.dispatch_status == 'dispatched' }}>Dispatched</option>
+    </select>
+    <input name="transport_type" value="{{ inv.transport_type or '' }}" placeholder="Transportation type" list="transport-types">
+    <datalist id="transport-types">{% for t in ['Own vehicle', 'Auto', 'Tempo / mini truck', 'Lorry / truck', 'Courier', 'Bus / parcel service', 'Customer pickup'] %}<option>{{ t }}</option>{% endfor %}</datalist>
+    <input name="vehicle_no" value="{{ inv.vehicle_no or '' }}" placeholder="Vehicle / LR no.">
+    <input type="date" name="dispatch_date" value="{{ inv.dispatch_date or '' }}">
+    <input name="dispatch_note" value="{{ inv.dispatch_note or '' }}" placeholder="Note">
+    <button class="btn primary">Save</button>
+  </form>
+</section>
+{% endif %}
 <div class="card paper">{% include "_invoice_doc.html" %}</div>
 {% endblock %}

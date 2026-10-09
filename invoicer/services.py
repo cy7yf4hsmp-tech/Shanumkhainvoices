@@ -65,7 +65,7 @@ def create_invoice(db, customer, lines, tax_type="intra", invoice_date=None, due
                    amount_paid=0.0):
     """Create an invoice, deduct stock for product lines. Raises StockError/ValueError on bad input.
 
-    customer: dict(id?, name, address, phone, gstin)
+    customer: dict(id?, name, address, phone, gstin, ship_to_address)
     lines: list of dict(product_id?, description, hsn, unit, qty, price, discount_pct, gst_rate)
     """
     if not customer.get("name", "").strip():
@@ -87,12 +87,12 @@ def create_invoice(db, customer, lines, tax_type="intra", invoice_date=None, due
     try:
         cur = db.execute(
             """INSERT INTO invoices (number, date, due_date, customer_id, customer_name, customer_address,
-                   customer_phone, customer_gstin, tax_type, subtotal, discount, tax_total, round_off, total,
+                   customer_phone, customer_gstin, ship_to_address, tax_type, subtotal, discount, tax_total, round_off, total,
                    amount_paid, status, notes)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (number, invoice_date or date.today().isoformat(), due_date, customer.get("id"),
              customer["name"].strip(), customer.get("address", ""), customer.get("phone", ""),
-             customer.get("gstin", ""), tax_type, totals["subtotal"], totals["discount"],
+             customer.get("gstin", ""), customer.get("ship_to_address") or customer.get("address", ""), tax_type, totals["subtotal"], totals["discount"],
              totals["tax_total"], totals["round_off"], totals["total"], amount_paid, status, notes),
         )
         invoice_id = cur.lastrowid

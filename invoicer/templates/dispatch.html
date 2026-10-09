@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Dispatch{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>Dispatch</h1>
+  <span class="muted">{{ pending }} printed invoice{{ '' if pending == 1 else 's' }} waiting to be dispatched</span>
+</div>
+<p class="muted">Invoices appear here once they have been printed (Print / Save PDF).</p>
+<form class="filters" method="get">
+  <input name="q" value="{{ q }}" placeholder="Invoice no. or customer">
+  <select name="status">
+    {% for value, label in [('', 'All printed invoices'), ('not_dispatched', 'Not dispatched'), ('dispatched', 'Dispatched')] %}
+      <option value="{{ value }}" {{ 'selected' if status == value }}>{{ label }}</option>
+    {% endfor %}
+  </select>
+  <button class="btn">Filter</button>
+</form>
+<div class="table-scroll card" style="padding:0">
+<table class="dispatch">
+  <thead><tr><th>Invoice no.</th><th>Invoice date</th><th>Customer</th><th>Dispatch status</th>
+    <th>Transportation type</th><th>Vehicle / LR no.</th><th>Dispatch date</th><th></th></tr></thead>
+  <tbody>
+  {% for i in invoices %}
+    {% set fid = 'd' ~ i.id %}
+    <tr>
+      <td><a href="{{ url_for('main.invoice_view', iid=i.id) }}">{{ i.number }}</a></td>
+      <td>{{ i.date }}</td>
+      <td>{{ i.customer_name }}</td>
+      <td>
+        <select name="dispatch_status" form="{{ fid }}" class="{{ 'good' if i.dispatch_status == 'dispatched' else 'warn' }}">
+          <option value="not_dispatched" {{ 'selected' if i.dispatch_status != 'dispatched' }}>Not dispatched</option>
+          <option value="dispatched" {{ 'selected' if i.dispatch_status == 'dispatched' }}>Dispatched</option>
+        </select>
+      </td>
+      <td>
+        <select name="transport_type" form="{{ fid }}">
+          <option value="">— Select —</option>
+          {% for t in transport_types %}<option {{ 'selected' if i.transport_type == t }}>{{ t }}</option>{% endfor %}
+          {% if i.transport_type and i.transport_type not in transport_types %}<option selected>{{ i.transport_type }}</option>{% endif %}
+        </select>
+      </td>
+      <td><input name="vehicle_no" form="{{ fid }}" value="{{ i.vehicle_no or '' }}" size="10" placeholder="AP 16 XX 1234"></td>
+      <td><input type="date" name="dispatch_date" form="{{ fid }}" value="{{ i.dispatch_date or '' }}"></td>
+      <td>
+        <form id="{{ fid }}" method="post" action="{{ url_for('main.dispatch_update', iid=i.id) }}">
+          <input type="hidden" name="dispatch_note" value="{{ i.dispatch_note or '' }}">
+          <input type="hidden" name="next" value="{{ request.full_path }}">
+          <button class="btn small primary">Save</button>
+        </form>
+      </td>
+    </tr>
+  {% else %}
+    <tr><td colspan="8" class="muted">No printed invoices{{ ' match this filter' if status or q }}. Open an invoice and click “Print / Save PDF” to send it to dispatch.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endblock %}
