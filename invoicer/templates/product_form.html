@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Add' if new else 'Edit' }} product{% endblock %}
+{% block content %}
+<h1>{{ 'Add product' if new else 'Edit product' }}</h1>
+<form method="post" class="card form">
+  <div class="row">
+    <label>Name *<input name="name" value="{{ product.name or '' }}" required autofocus></label>
+    <label>SKU / code<input name="sku" value="{{ product.sku or '' }}"></label>
+  </div>
+  <div class="row">
+    <label>HSN / SAC<input name="hsn" value="{{ product.hsn or '' }}"></label>
+    <label>Unit<input name="unit" value="{{ product.unit or 'pcs' }}" list="units"></label>
+    <datalist id="units"><option>pcs</option><option>kg</option><option>g</option><option>ltr</option><option>m</option><option>box</option><option>set</option><option>nos</option></datalist>
+  </div>
+  <div class="row">
+    <label>Selling price (₹, excl. GST)<input name="price" type="number" step="0.01" min="0" value="{{ product.price if product.price is not none else '' }}"></label>
+    <label>Cost price (₹)<input name="cost" type="number" step="0.01" min="0" value="{{ product.cost if product.cost is not none else '' }}"></label>
+    <label>GST rate (%)
+      <select name="gst_rate">
+        {% for r in [0, 0.25, 3, 5, 12, 18, 28] %}<option value="{{ r }}" {{ 'selected' if (product.gst_rate|float) == r }}>{{ r|qty }}%</option>{% endfor %}
+      </select>
+    </label>
+  </div>
+  <div class="row">
+    {% if new %}<label>Opening stock<input name="stock" type="number" step="any" value="{{ product.stock or '' }}"></label>{% endif %}
+    <label>Reorder level (alert when stock falls to this)<input name="reorder_level" type="number" step="any" min="0" value="{{ product.reorder_level or '' }}"></label>
+  </div>
+  <div class="actions">
+    <button class="btn primary">Save</button>
+    <a class="btn" href="{{ url_for('main.products') if new else url_for('main.product_detail', pid=product.id) }}">Cancel</a>
+  </div>
+</form>
+{% endblock %}

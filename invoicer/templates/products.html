@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Products{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>Products &amp; stock</h1>
+  <div class="actions">
+    <a class="btn" href="{{ url_for('main.stock_export') }}">Export CSV</a>
+    <a class="btn primary" href="{{ url_for('main.product_new') }}">+ Add product</a>
+  </div>
+</div>
+<form class="filters" method="get">
+  <input name="q" value="{{ q }}" placeholder="Search name, SKU or HSN">
+  <label class="check"><input type="checkbox" name="low" value="1" {{ 'checked' if request.args.low }}> Low stock only</label>
+  <button class="btn">Filter</button>
+</form>
+<table class="card">
+  <thead><tr><th>SKU</th><th>Name</th><th>HSN</th><th class="num">Price</th><th class="num">GST</th>
+    <th class="num">In stock</th><th class="num">Reorder at</th><th></th></tr></thead>
+  <tbody>
+  {% for p in products %}
+    <tr>
+      <td>{{ p.sku or '' }}</td>
+      <td><a href="{{ url_for('main.product_detail', pid=p.id) }}">{{ p.name }}</a></td>
+      <td>{{ p.hsn }}</td>
+      <td class="num">₹{{ p.price|inr }}</td>
+      <td class="num">{{ p.gst_rate|qty }}%</td>
+      <td class="num {{ 'bad' if p.stock <= 0 else ('warn' if p.stock <= p.reorder_level) }}">{{ p.stock|qty }} {{ p.unit }}</td>
+      <td class="num">{{ p.reorder_level|qty }}</td>
+      <td class="num"><a href="{{ url_for('main.product_edit', pid=p.id) }}">Edit</a></td>
+    </tr>
+  {% else %}
+    <tr><td colspan="8" class="muted">No products found.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

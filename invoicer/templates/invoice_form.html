@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block title %}New invoice{% endblock %}
+{% block content %}
+<h1>New invoice</h1>
+<form method="post" id="invoice-form" class="form">
+  <section class="card">
+    <h2>Customer</h2>
+    <div class="row">
+      <label>Existing customer
+        <select name="customer_id" id="customer-select">
+          <option value="">— New / walk-in customer —</option>
+          {% for c in customers %}<option value="{{ c.id }}" {{ 'selected' if form.customer_id == c.id|string }}>{{ c.name }}{% if c.phone %} ({{ c.phone }}){% endif %}</option>{% endfor %}
+        </select>
+      </label>
+      <label>Name *<input name="customer_name" id="customer_name" value="{{ form.customer_name or '' }}" required></label>
+      <label>Phone<input name="customer_phone" id="customer_phone" value="{{ form.customer_phone or '' }}"></label>
+    </div>
+    <div class="row">
+      <label>Address<textarea name="customer_address" id="customer_address" rows="2">{{ form.customer_address or '' }}</textarea></label>
+      <label>GSTIN<input name="customer_gstin" id="customer_gstin" value="{{ form.customer_gstin or '' }}" maxlength="15"></label>
+    </div>
+    <label class="check" id="save-customer-wrap"><input type="checkbox" name="save_customer" value="1" {{ 'checked' if form.save_customer }}> Save as a new customer</label>
+  </section>
+
+  <section class="card">
+    <div class="row">
+      <label>Invoice date<input type="date" name="date" value="{{ form.date or today }}"></label>
+      <label>Due date<input type="date" name="due_date" value="{{ form.due_date or '' }}"></label>
+      <label>GST type
+        <select name="tax_type" id="tax_type">
+          <option value="intra" {{ 'selected' if form.tax_type != 'inter' }}>Within state (CGST + SGST)</option>
+          <option value="inter" {{ 'selected' if form.tax_type == 'inter' }}>Other state (IGST)</option>
+        </select>
+      </label>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Items</h2>
+    <div class="table-scroll">
+    <table class="items" id="items">
+      <thead><tr><th style="width:24%">Product</th><th>Description</th><th>HSN</th><th>Unit</th>
+        <th class="num">Qty</th><th class="num">Rate ₹</th><th class="num">Disc %</th><th class="num">GST %</th>
+        <th class="num">Amount ₹</th><th></th></tr></thead>
+      <tbody></tbody>
+    </table>
+    </div>
+    <button type="button" class="btn" id="add-row">+ Add item</button>
+  </section>
+
+  <div class="grid2">
+    <section class="card">
+      <label>Notes<textarea name="notes" rows="3">{{ form.notes or '' }}</textarea></label>
+      <label>Amount received now (₹)<input type="number" step="0.01" min="0" name="amount_paid" value="{{ form.amount_paid or '' }}"></label>
+    </section>
+    <section class="card totals">
+      <div><span>Subtotal</span><span id="t-subtotal">0.00</span></div>
+      <div><span>Discount</span><span id="t-discount">0.00</span></div>
+      <div class="intra"><span>CGST</span><span id="t-cgst">0.00</span></div>
+      <div class="intra"><span>SGST</span><span id="t-sgst">0.00</span></div>
+      <div class="inter"><span>IGST</span><span id="t-igst">0.00</span></div>
+      <div><span>Round off</span><span id="t-round">0.00</span></div>
+      <div class="grand"><span>Total</span><span id="t-total">0.00</span></div>
+    </section>
+  </div>
+
+  <div class="actions">
+    <button class="btn primary big">Save invoice</button>
+    <a class="btn" href="{{ url_for('main.invoices') }}">Cancel</a>
+  </div>
+</form>
+
+<template id="row-template">
+  <tr>
+    <td><select name="product_id" class="product"><option value="">— Custom item —</option></select>
+        <small class="stock-hint muted"></small></td>
+    <td><input name="description" class="description" placeholder="Item description"></td>
+    <td><input name="hsn" class="hsn" size="6"></td>
+    <td><input name="unit" class="unit" size="4"></td>
+    <td><input name="qty" class="qty num" type="number" step="any" min="0" value="1"></td>
+    <td><input name="price" class="price num" type="number" step="0.01" min="0"></td>
+    <td><input name="discount_pct" class="disc num" type="number" step="0.01" min="0" max="100" value="0"></td>
+    <td><select name="gst_rate" class="gst">{% for r in [0, 0.25, 3, 5, 12, 18, 28] %}<option value="{{ r }}">{{ r|qty }}</option>{% endfor %}</select></td>
+    <td class="num amount">0.00</td>
+    <td><button type="button" class="btn small remove" title="Remove">✕</button></td>
+  </tr>
+</template>
+{% endblock %}
+{% block scripts %}
+<script>
+  window.INVOICE_DATA = {
+    products: {{ products|tojson }},
+    customers: {{ customers|tojson }},
+    lines: {{ (form.lines or [])|tojson }}
+  };
+</script>
+<script src="{{ url_for('static', filename='invoice.js') }}"></script>
+{% endblock %}

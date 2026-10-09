@@ -1,0 +1,81 @@
+<article class="invoice-doc">
+  <header class="inv-head">
+    <div>
+      <h2 class="biz">{{ settings.business_name }}</h2>
+      <div class="pre">{{ settings.address }}</div>
+      {% if settings.phone %}<div>Phone: {{ settings.phone }}</div>{% endif %}
+      {% if settings.email %}<div>Email: {{ settings.email }}</div>{% endif %}
+      {% if settings.gstin %}<div><b>GSTIN:</b> {{ settings.gstin }}</div>{% endif %}
+      {% if settings.state %}<div>State: {{ settings.state }}</div>{% endif %}
+    </div>
+    <div class="inv-meta">
+      <h1>{{ 'TAX INVOICE' if settings.gstin else 'INVOICE' }}</h1>
+      <div><b>Invoice No:</b> {{ inv.number }}</div>
+      <div><b>Date:</b> {{ inv.date }}</div>
+      {% if inv.due_date %}<div><b>Due:</b> {{ inv.due_date }}</div>{% endif %}
+      {% if inv.status == 'cancelled' %}<div class="stamp">CANCELLED</div>{% endif %}
+    </div>
+  </header>
+
+  <section class="bill-to">
+    <div class="label">Bill to</div>
+    <div><b>{{ inv.customer_name }}</b></div>
+    <div class="pre">{{ inv.customer_address }}</div>
+    {% if inv.customer_phone %}<div>Phone: {{ inv.customer_phone }}</div>{% endif %}
+    {% if inv.customer_gstin %}<div>GSTIN: {{ inv.customer_gstin }}</div>{% endif %}
+  </section>
+
+  <table class="inv-items">
+    <thead><tr><th>#</th><th>Description</th><th>HSN</th><th class="num">Qty</th><th class="num">Rate</th>
+      <th class="num">Disc</th><th class="num">Taxable</th><th class="num">GST</th><th class="num">Amount</th></tr></thead>
+    <tbody>
+    {% for it in items %}
+      <tr><td>{{ loop.index }}</td><td>{{ it.description }}</td><td>{{ it.hsn }}</td>
+          <td class="num">{{ it.qty|qty }} {{ it.unit }}</td><td class="num">{{ it.price|inr }}</td>
+          <td class="num">{% if it.discount_pct %}{{ it.discount_pct|qty }}%{% endif %}</td>
+          <td class="num">{{ it.taxable|inr }}</td><td class="num">{{ it.gst_rate|qty }}%</td>
+          <td class="num">{{ (it.taxable + it.tax)|inr }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+
+  <div class="inv-bottom">
+    <div>
+      {% if gst_summary and inv.tax_total %}
+      <table class="gst-summary">
+        <thead><tr><th>GST %</th><th class="num">Taxable</th>
+          {% if inv.tax_type == 'inter' %}<th class="num">IGST</th>{% else %}<th class="num">CGST</th><th class="num">SGST</th>{% endif %}</tr></thead>
+        <tbody>
+        {% for rate, s in gst_summary %}
+          <tr><td>{{ rate|qty }}%</td><td class="num">{{ s.taxable|inr }}</td>
+            {% if inv.tax_type == 'inter' %}<td class="num">{{ s.tax|inr }}</td>
+            {% else %}<td class="num">{{ (s.tax / 2)|inr }}</td><td class="num">{{ (s.tax / 2)|inr }}</td>{% endif %}</tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      {% endif %}
+      <p class="words"><b>Amount in words:</b> {{ inv.total|words }}</p>
+      {% if inv.notes %}<p class="pre"><b>Notes:</b> {{ inv.notes }}</p>{% endif %}
+      {% if settings.bank_details %}<p class="pre"><b>Bank details:</b><br>{{ settings.bank_details }}</p>{% endif %}
+    </div>
+    <div class="inv-totals">
+      <div><span>Subtotal</span><span>{{ inv.subtotal|inr }}</span></div>
+      {% if inv.discount %}<div><span>Discount</span><span>-{{ inv.discount|inr }}</span></div>{% endif %}
+      {% if inv.tax_type == 'inter' %}
+        <div><span>IGST</span><span>{{ inv.tax_total|inr }}</span></div>
+      {% else %}
+        <div><span>CGST</span><span>{{ (inv.tax_total / 2)|inr }}</span></div>
+        <div><span>SGST</span><span>{{ (inv.tax_total / 2)|inr }}</span></div>
+      {% endif %}
+      {% if inv.round_off %}<div><span>Round off</span><span>{{ inv.round_off|inr }}</span></div>{% endif %}
+      <div class="grand"><span>Total</span><span>₹{{ inv.total|inr }}</span></div>
+      {% if inv.amount_paid %}<div><span>Paid</span><span>{{ inv.amount_paid|inr }}</span></div>
+      <div><span>Balance due</span><span>{{ (inv.total - inv.amount_paid)|inr }}</span></div>{% endif %}
+    </div>
+  </div>
+
+  <footer class="inv-foot">
+    <div class="pre small">{{ settings.terms }}</div>
+    <div class="sign">For {{ settings.business_name }}<br><br><br>Authorised signatory</div>
+  </footer>
+</article>

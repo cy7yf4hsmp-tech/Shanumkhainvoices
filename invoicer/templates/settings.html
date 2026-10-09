@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Settings{% endblock %}
+{% block content %}
+<h1>Business settings</h1>
+<p class="muted">These details appear on every invoice.</p>
+<form method="post" class="card form">
+  <div class="row">
+    <label>Business name<input name="business_name" value="{{ form.business_name }}" required></label>
+    <label>GSTIN<input name="gstin" value="{{ form.gstin }}" maxlength="15"></label>
+    <label>State<input name="state" value="{{ form.state }}"></label>
+  </div>
+  <label>Address<textarea name="address" rows="3">{{ form.address }}</textarea></label>
+  <div class="row">
+    <label>Phone<input name="phone" value="{{ form.phone }}"></label>
+    <label>Email<input name="email" value="{{ form.email }}"></label>
+  </div>
+  <div class="row">
+    <label>Invoice number prefix<input name="invoice_prefix" value="{{ form.invoice_prefix }}"></label>
+    <label>Next invoice number<input name="next_invoice_no" type="number" min="1" value="{{ form.next_invoice_no }}"></label>
+  </div>
+  <label>Bank / UPI details<textarea name="bank_details" rows="3">{{ form.bank_details }}</textarea></label>
+  <label>Terms &amp; conditions<textarea name="terms" rows="3">{{ form.terms }}</textarea></label>
+  <div class="actions"><button class="btn primary">Save settings</button></div>
+</form>
+{% endblock %}

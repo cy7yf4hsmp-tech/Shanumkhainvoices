@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Edit' if cid else 'Add' }} customer{% endblock %}
+{% block content %}
+<h1>{{ 'Edit customer' if cid else 'Add customer' }}</h1>
+<form method="post" class="card form">
+  <div class="row">
+    <label>Name *<input name="name" value="{{ customer.name or '' }}" required autofocus></label>
+    <label>Phone<input name="phone" value="{{ customer.phone or '' }}"></label>
+    <label>Email<input name="email" type="email" value="{{ customer.email or '' }}"></label>
+  </div>
+  <label>Address<textarea name="address" rows="3">{{ customer.address or '' }}</textarea></label>
+  <div class="row">
+    <label>State<input name="state" value="{{ customer.state or '' }}"></label>
+    <label>GSTIN<input name="gstin" value="{{ customer.gstin or '' }}" maxlength="15" style="text-transform:uppercase"></label>
+  </div>
+  <div class="actions">
+    <button class="btn primary">Save</button>
+    <a class="btn" href="{{ url_for('main.customers') }}">Cancel</a>
+  </div>
+</form>
+{% endblock %}

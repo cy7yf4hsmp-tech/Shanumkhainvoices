@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>{{ inv.number }} - {{ inv.customer_name }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="print-page">
+  <div class="no-print print-bar">
+    <button class="btn primary" onclick="window.print()">Print / Save as PDF</button>
+    <a class="btn" href="{{ url_for('main.invoice_view', iid=inv.id) }}">Back</a>
+  </div>
+  {% include "_invoice_doc.html" %}
+  <script>window.addEventListener('load', () => setTimeout(() => window.print(), 300));</script>
+</body>
+</html>

@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}{{ customer.name }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>{{ customer.name }}</h1>
+  <div class="actions"><a class="btn" href="{{ url_for('main.customer_form', cid=customer.id) }}">Edit</a></div>
+</div>
+<section class="card">
+  <p>{{ customer.address }}{% if customer.state %}, {{ customer.state }}{% endif %}</p>
+  <p class="muted">{% if customer.phone %}Phone: {{ customer.phone }} · {% endif %}{% if customer.email %}{{ customer.email }} · {% endif %}{% if customer.gstin %}GSTIN: {{ customer.gstin }}{% endif %}</p>
+</section>
+<h2>Invoices</h2>
+<table class="card">
+  <thead><tr><th>No.</th><th>Date</th><th class="num">Total</th><th class="num">Paid</th><th>Status</th></tr></thead>
+  <tbody>
+  {% for i in invoices %}
+    <tr><td><a href="{{ url_for('main.invoice_view', iid=i.id) }}">{{ i.number }}</a></td><td>{{ i.date }}</td>
+        <td class="num">₹{{ i.total|inr }}</td><td class="num">₹{{ i.amount_paid|inr }}</td>
+        <td><span class="badge {{ i.status }}">{{ i.status }}</span></td></tr>
+  {% else %}
+    <tr><td colspan="5" class="muted">No invoices for this customer.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

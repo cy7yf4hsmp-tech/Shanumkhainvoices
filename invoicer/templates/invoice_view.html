@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}{{ inv.number }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>{{ inv.number }} <span class="badge {{ inv.status }}">{{ inv.status }}</span></h1>
+  <div class="actions">
+    <a class="btn primary" href="{{ url_for('main.invoice_print', iid=inv.id) }}" target="_blank">Print / Save PDF</a>
+    {% if inv.status != 'cancelled' %}
+    <form method="post" action="{{ url_for('main.invoice_cancel', iid=inv.id) }}" onsubmit="return confirm('Cancel this invoice? Items will be returned to stock.')">
+      <button class="btn danger">Cancel invoice</button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+{% if inv.status in ('unpaid', 'partial') %}
+<section class="card">
+  <form method="post" action="{{ url_for('main.invoice_pay', iid=inv.id) }}" class="inline-form">
+    <span>Balance due: <b>₹{{ (inv.total - inv.amount_paid)|inr }}</b></span>
+    <input type="number" name="amount" step="0.01" min="0.01" value="{{ '%.2f'|format(inv.total - inv.amount_paid) }}">
+    <button class="btn primary">Record payment</button>
+  </form>
+</section>
+{% endif %}
+<div class="card paper">{% include "_invoice_doc.html" %}</div>
+{% endblock %}

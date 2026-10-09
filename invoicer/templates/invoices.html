@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Invoices{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>Invoices</h1>
+  <div class="actions"><a class="btn primary" href="{{ url_for('main.invoice_new') }}">+ New invoice</a></div>
+</div>
+<form class="filters" method="get">
+  <input name="q" value="{{ q }}" placeholder="Invoice no. or customer">
+  <select name="status">
+    <option value="">All statuses</option>
+    {% for s in ['unpaid', 'partial', 'paid', 'cancelled'] %}<option {{ 'selected' if status == s }}>{{ s }}</option>{% endfor %}
+  </select>
+  <label>From <input type="date" name="from" value="{{ request.args.get('from', '') }}"></label>
+  <label>To <input type="date" name="to" value="{{ request.args.get('to', '') }}"></label>
+  <button class="btn">Filter</button>
+</form>
+<table class="card">
+  <thead><tr><th>No.</th><th>Date</th><th>Customer</th><th class="num">Total</th><th class="num">Due</th><th>Status</th></tr></thead>
+  <tbody>
+  {% for i in invoices %}
+    <tr><td><a href="{{ url_for('main.invoice_view', iid=i.id) }}">{{ i.number }}</a></td><td>{{ i.date }}</td>
+        <td>{{ i.customer_name }}</td><td class="num">₹{{ i.total|inr }}</td>
+        <td class="num">{% if i.status in ('unpaid', 'partial') %}₹{{ (i.total - i.amount_paid)|inr }}{% endif %}</td>
+        <td><span class="badge {{ i.status }}">{{ i.status }}</span></td></tr>
+  {% else %}
+    <tr><td colspan="6" class="muted">No invoices found.</td></tr>
+  {% endfor %}
+  </tbody>
+  {% if invoices %}
+  <tfoot><tr><th colspan="3">Totals (excluding cancelled)</th><th class="num">₹{{ totals.total|inr }}</th><th class="num">₹{{ totals.due|inr }}</th><th></th></tr></tfoot>
+  {% endif %}
+</table>
+{% endblock %}

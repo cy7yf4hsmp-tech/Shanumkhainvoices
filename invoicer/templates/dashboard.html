@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<h1>Dashboard</h1>
+<div class="tiles">
+  <div class="tile"><span>Sales today</span><strong>₹{{ stats.today|inr }}</strong></div>
+  <div class="tile"><span>Sales this month</span><strong>₹{{ stats.month|inr }}</strong></div>
+  <div class="tile"><span>Outstanding (unpaid)</span><strong class="{{ 'warn' if stats.outstanding }}">₹{{ stats.outstanding|inr }}</strong></div>
+  <div class="tile"><span>Stock value (at cost)</span><strong>₹{{ stats.stock_value|inr }}</strong></div>
+  <div class="tile"><span>Active products</span><strong>{{ stats.products }}</strong></div>
+</div>
+
+<div class="grid2">
+  <section class="card">
+    <div class="card-head"><h2>Low stock</h2><a href="{{ url_for('main.products', low=1) }}">View all</a></div>
+    {% if low_stock %}
+    <table>
+      <thead><tr><th>Product</th><th class="num">In stock</th><th class="num">Reorder at</th></tr></thead>
+      <tbody>
+      {% for p in low_stock[:10] %}
+        <tr><td><a href="{{ url_for('main.product_detail', pid=p.id) }}">{{ p.name }}</a></td>
+            <td class="num {{ 'bad' if p.stock <= 0 else 'warn' }}">{{ p.stock|qty }} {{ p.unit }}</td>
+            <td class="num">{{ p.reorder_level|qty }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}<p class="muted">All products are above their reorder level.</p>{% endif %}
+  </section>
+
+  <section class="card">
+    <div class="card-head"><h2>Recent invoices</h2><a href="{{ url_for('main.invoices') }}">View all</a></div>
+    {% if recent %}
+    <table>
+      <thead><tr><th>No.</th><th>Customer</th><th class="num">Total</th><th>Status</th></tr></thead>
+      <tbody>
+      {% for i in recent %}
+        <tr><td><a href="{{ url_for('main.invoice_view', iid=i.id) }}">{{ i.number }}</a></td>
+            <td>{{ i.customer_name }}</td><td class="num">₹{{ i.total|inr }}</td>
+            <td><span class="badge {{ i.status }}">{{ i.status }}</span></td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}<p class="muted">No invoices yet. <a href="{{ url_for('main.invoice_new') }}">Create the first one</a>.</p>{% endif %}
+  </section>
+</div>
+{% endblock %}
