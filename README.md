@@ -69,6 +69,12 @@ It runs on your own computer (or a small server) and keeps all data in one SQLit
 
 ## Getting started
 
+**Easiest way:** follow **GETTING-STARTED.pdf** (or `GETTING-STARTED.md`). Install Python, unzip the folder,
+then double-click **Start-Windows.bat** (Mac: **Start-Mac.command**). Use **Backup-Windows.bat** /
+**Backup-Mac.command** to back up your data.
+
+Manual way (for technical users):
+
 Requires Python 3.10+.
 
 ```bash
