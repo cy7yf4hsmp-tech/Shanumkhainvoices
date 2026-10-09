@@ -35,7 +35,15 @@ Python is the free engine the app runs on.
 - A black window opens. **The first time it prepares the app for 1–3 minutes (internet needed).**
 - Your browser then opens the app at **http://127.0.0.1:5000**.
 
-**Mac:** right-click **Start-Mac.command** → **Open** → **Open** (needed the first time only).
+**Mac:** double-click **Start-Mac.command**. The first time, macOS says *"Apple could not verify
+'Start-Mac.command'…"*. Click **Done** (not "Move to Bin"), then either:
+
+- open ** → System Settings → Privacy & Security**, scroll down, click **Open Anyway**, enter your Mac
+  password and click **Open Anyway** again, **or**
+- open **Terminal** (⌘ Space, type Terminal) and paste this line, then press Enter. It unblocks both Mac files at once:
+  `xattr -dr com.apple.quarantine ~/Documents/Shanumkha-Invoices && bash ~/Documents/Shanumkha-Invoices/Start-Mac.command`
+
+This warning appears for any app not from the App Store; it only has to be allowed once.
 
 > **Keep the black window open while you use the app.** Closing it stops the app.
 > To start again tomorrow, double-click **Start-Windows.bat** again (it will be fast after the first time).
@@ -115,6 +123,8 @@ or a cloud server). This is the next step and can be set up when you are ready.
 
 | Problem | Fix |
 |---|---|
+| Mac: "Apple could not verify Start-Mac.command" | Click **Done**, then **System Settings → Privacy & Security → Open Anyway** (see Step 3). |
+| Mac: a box asks to install "command line developer tools" | Python isn't installed yet. Click Cancel and do Step 1 first. |
 | "Python is not installed" | Install Python (Step 1) and **tick "Add python.exe to PATH"**. Then restart the computer. |
 | "Something went wrong during setup" | Check the internet connection. Delete the `.venv` folder inside the app folder and double-click Start again. |
 | Browser says "can't reach this page" | The black window must be open. Wait a few seconds and refresh. |
