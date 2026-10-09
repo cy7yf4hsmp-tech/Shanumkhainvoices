@@ -166,3 +166,4 @@ tr.skip td { opacity: .45; }
 .topbar .brand { font-size: 16px; }
 .topbar nav { gap: 2px; }
 .topbar nav a { padding: 6px 8px; font-size: 13.5px; white-space: nowrap; }
+.nowrap { white-space: nowrap; }

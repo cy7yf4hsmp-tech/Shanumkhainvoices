@@ -25,7 +25,7 @@
     {% set inv = it.inv %}
     <tr>
       <td>{% if inv.customer_id %}<a href="{{ url_for('main.customer_detail', cid=inv.customer_id) }}">{{ inv.customer_name }}</a>{% else %}{{ inv.customer_name }}{% endif %}</td>
-      <td><a href="{{ url_for('main.invoice_view', iid=inv.id) }}">{{ inv.number }}</a><div class="muted small">{{ inv.date }}</div></td>
+      <td><a href="{{ url_for('main.invoice_view', iid=inv.id) }}" class="nowrap">{{ inv.number }}</a><div class="muted small">{{ inv.date }}</div></td>
       <td class="num">₹{{ inv.total|inr }}</td>
       <td class="num {{ 'warn' if it.due > 0 }}">₹{{ it.due|inr }}</td>
       <td>{% if inv.status == 'paid' %}<span class="badge received">Payment received</span>

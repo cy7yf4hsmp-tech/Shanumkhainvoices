@@ -45,7 +45,7 @@
         <td><a href="{{ url_for('main.product_detail', pid=m.product_id) }}">{{ m.product_name }}</a></td>
         <td class="num bad">{{ (-m.qty)|qty }} {{ m.unit }}</td>
         <td><span class="badge {{ m.kind }}">{{ 'Sale' if m.kind == 'sale' else 'Stock out' }}</span></td>
-        <td>{% if m.invoice_id %}<a href="{{ url_for('main.invoice_view', iid=m.invoice_id) }}">{{ m.reference }}</a>{% if m.invoice_status == 'cancelled' %} <span class="badge cancelled">cancelled</span>{% endif %}{% else %}{{ m.reference }}{% endif %}</td>
+        <td>{% if m.invoice_id %}<a href="{{ url_for('main.invoice_view', iid=m.invoice_id) }}" class="nowrap">{{ m.reference }}</a>{% if m.invoice_status == 'cancelled' %} <span class="badge cancelled">cancelled</span>{% endif %}{% else %}{{ m.reference }}{% endif %}</td>
         <td>{{ m.customer_name or m.note }}</td>
         <td class="num">₹{{ (-m.qty * m.price)|inr }}</td>
         <td class="num">{{ m.balance|qty }}</td></tr>

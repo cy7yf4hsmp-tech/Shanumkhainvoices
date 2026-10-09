@@ -15,7 +15,7 @@
   <thead><tr><th>No.</th><th>Date</th><th class="num">Total</th><th class="num">Paid</th><th>Status</th></tr></thead>
   <tbody>
   {% for i in invoices %}
-    <tr><td><a href="{{ url_for('main.invoice_view', iid=i.id) }}">{{ i.number }}</a></td><td>{{ i.date }}</td>
+    <tr><td><a href="{{ url_for('main.invoice_view', iid=i.id) }}" class="nowrap">{{ i.number }}</a></td><td>{{ i.date }}</td>
         <td class="num">₹{{ i.total|inr }}</td><td class="num">₹{{ i.amount_paid|inr }}</td>
         <td><span class="badge {{ i.status }}">{{ i.status }}</span></td></tr>
   {% else %}

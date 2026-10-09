@@ -23,7 +23,7 @@
   {% for i in invoices %}
     {% set fid = 'd' ~ i.id %}
     <tr>
-      <td><a href="{{ url_for('main.invoice_view', iid=i.id) }}">{{ i.number }}</a></td>
+      <td><a href="{{ url_for('main.invoice_view', iid=i.id) }}" class="nowrap">{{ i.number }}</a></td>
       <td>{{ i.date }}</td>
       <td>{{ i.customer_name }}</td>
       <td>

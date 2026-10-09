@@ -60,7 +60,7 @@
       <thead><tr><th>No.</th><th>Customer</th><th class="num">Total</th><th>Status</th></tr></thead>
       <tbody>
       {% for i in recent %}
-        <tr><td><a href="{{ url_for('main.invoice_view', iid=i.id) }}">{{ i.number }}</a></td>
+        <tr><td><a href="{{ url_for('main.invoice_view', iid=i.id) }}" class="nowrap">{{ i.number }}</a></td>
             <td>{{ i.customer_name }}</td><td class="num">₹{{ i.total|inr }}</td>
             <td><span class="badge {{ i.status }}">{{ i.status }}</span></td></tr>
       {% endfor %}
