@@ -24,7 +24,7 @@ echo "Checking the app's components..."
   read -r -p "Press Enter to close..."; exit 1; }
 .venv/bin/python setup_db.py --if-needed || { read -r -p "Press Enter to close..."; exit 1; }
 echo
-echo "The app is starting. Your browser will open at  http://127.0.0.1:5000"
+echo "The app is starting. Your browser will open at  http://127.0.0.1:8765"
 echo "KEEP THIS WINDOW OPEN while you use the app. To stop it, close this window (or press Ctrl+C)."
-( sleep 3; (command -v open >/dev/null && open http://127.0.0.1:5000) || xdg-open http://127.0.0.1:5000 >/dev/null 2>&1 ) &
+( sleep 3; (command -v open >/dev/null && open http://127.0.0.1:8765) || xdg-open http://127.0.0.1:8765 >/dev/null 2>&1 ) &
 exec .venv/bin/python run.py

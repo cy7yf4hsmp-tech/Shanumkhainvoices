@@ -23,12 +23,12 @@ echo Checking the app's components...
 ".venv\Scripts\python.exe" setup_db.py --if-needed || goto failed
 
 echo.
-echo The app is starting. Your browser will open at  http://127.0.0.1:5000
+echo The app is starting. Your browser will open at  http://127.0.0.1:8765
 echo.
 echo   KEEP THIS WINDOW OPEN while you use the app.
 echo   To stop the app, close this window.
 echo.
-start "" cmd /c "timeout /t 3 >nul & start http://127.0.0.1:5000"
+start "" cmd /c "timeout /t 3 >nul & start http://127.0.0.1:8765"
 ".venv\Scripts\python.exe" run.py
 goto end
 

@@ -53,9 +53,14 @@ Python is the free engine the app runs on.
   (It appears because the file is new to Windows, not because it is unsafe.)
 - A black window opens. **The first time it prepares the app for 1–3 minutes (internet needed).**
 - It then asks **"Where should this computer keep the app's data?"**: type **1** (shared online database)
-  and press Enter, then **paste the connection string** (right-click → Paste) and press Enter. It checks the
-  connection and saves it. You won't be asked again on this computer.
-- Your browser then opens the app at **http://127.0.0.1:5000**.
+  and press Enter, then **paste the connection string** (Windows: right-click; Mac: ⌘ Cmd + V) and press Enter.
+  **Nothing appears while you paste. That's on purpose, to keep the password private.** The window then shows
+  the string with the password as `****` and asks you to confirm the database name (it must be **your**
+  database, e.g. `shanmukaconsumersinvoice`, not `neondb`). It checks the connection and saves it. You won't be
+  asked again on this computer.
+- **Never share a photo or screenshot of the connection string.** If that happens, reset the password in Neon
+  (Roles → neondb_owner → Reset password) and connect again with the new string.
+- Your browser then opens the app at **http://127.0.0.1:8765**.
 
 **Mac:** double-click **Start-Mac.command**. The first time, macOS says *"Apple could not verify
 'Start-Mac.command'…"*. Click **Done** (not "Move to Bin"), then either:
@@ -69,7 +74,7 @@ This warning appears for any app not from the App Store; it only has to be allow
 
 > **Keep the black window open while you use the app.** Closing it stops the app.
 > To start again tomorrow, double-click **Start-Windows.bat** again (it will be fast after the first time).
-> If the browser didn't open, open it yourself and go to **http://127.0.0.1:5000**.
+> If the browser didn't open, open it yourself and go to **http://127.0.0.1:8765**.
 
 ## Step 4: Create the administrator login (first computer only)
 
@@ -117,11 +122,11 @@ Either:
 
 With the app running, install it so it opens in its own window with an icon, like any other app:
 
-- **Google Chrome or Microsoft Edge (Windows or Mac):** open **http://127.0.0.1:5000**, then click the
+- **Google Chrome or Microsoft Edge (Windows or Mac):** open **http://127.0.0.1:8765**, then click the
   **install icon** at the right end of the address bar (a small screen with a down arrow) → **Install**.
   Or use the **⋮** menu → **Cast, save and share** → **Install page as app** (Edge: **⋯** → **Apps** →
   **Install this site as an app**).
-- **Safari on Mac:** open **http://127.0.0.1:5000**, then **File → Add to Dock** → **Add**.
+- **Safari on Mac:** open **http://127.0.0.1:8765**, then **File → Add to Dock** → **Add**.
 
 The **Shanumkha Invoices** icon then appears in your Dock / Start menu / desktop. Click it to open the app.
 
@@ -195,4 +200,5 @@ and paste the new connection string on the other computers (see Troubleshooting:
 | "Could not connect" / "password authentication failed" when pasting | Copy the connection string again from Neon (**Connect**), including the password, and paste the whole line. |
 | The app is slow on the first click of the day | Neon was paused to save resources; it wakes up in a second or two. |
 | Change the database (or switch to "this computer only") | Delete the file `instance/database_url.txt` in the app folder and start the app again; it asks again. |
+| Chrome shows "Access to 127.0.0.1 was denied – HTTP ERROR 403" | You are on an old address. Open **http://127.0.0.1:8765** (port 5000 belongs to the Mac's AirPlay Receiver). |
 | Someone is locked out | They typed a wrong password 5 times. Wait 15 minutes, or the admin clicks **Unlock** under **Users & access**. |

@@ -26,6 +26,24 @@ def clean_url(text):
     return m.group(0) if m else ""
 
 
+def masked(url):
+    """The connection string with its password hidden, safe to show on screen."""
+    return re.sub(r"(://[^:/@]+:)[^@]+@", r"\1****@", url)
+
+
+def database_name(url):
+    m = re.search(r"://[^/]+/([^?]+)", url)
+    return m.group(1) if m else "(default)"
+
+
+def ask_secret(prompt):
+    import getpass
+    try:
+        return getpass.getpass(prompt).strip()
+    except (EOFError, getpass.GetPassWarning):
+        return ""
+
+
 def test_connection(url):
     import psycopg
     try:
@@ -67,10 +85,16 @@ def local_has_data():
 def setup_shared():
     print("\nIn Neon: open your project -> Dashboard -> Connect -> copy the connection string.")
     print("(It starts with postgresql:// . The administrator can send it to you.)")
+    print("The connection string contains the database password, so it stays hidden while you paste it.")
     while True:
-        url = clean_url(ask("\nPaste the connection string here and press Enter (or just Enter to cancel): "))
+        url = clean_url(ask_secret("\nPaste the connection string here (nothing shows - that's normal) and press Enter: "))
         if not url:
             return False
+        print("Received:", masked(url))
+        answer = ask(f"Use the database '{database_name(url)}'? (y/n): ").lower()
+        if not answer.startswith("y"):
+            print("In Neon's Connect box, pick the right database in the Database list, copy again and paste.")
+            continue
         print("Connecting...")
         error = test_connection(url)
         if error:

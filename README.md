@@ -93,7 +93,7 @@ pip install -r requirements.txt
 python run.py
 ```
 
-Open http://127.0.0.1:5000 in your browser. Then:
+Open http://127.0.0.1:8765 in your browser. Then:
 
 1. The first time, the app asks you to **create the administrator login**. Do this straight away.
 1. Under **Users & access**, add a login for each person and choose what they can see and change.
@@ -109,7 +109,7 @@ Open http://127.0.0.1:5000 in your browser. Then:
 | `DATABASE_URL` | from `instance/database_url.txt` | Shared PostgreSQL database (e.g. Neon) used by every computer. Empty = data on this computer only |
 | `SECRET_KEY`   | random, saved in `instance/` | Key that signs login cookies (optional to set) |
 | `SESSION_COOKIE_SECURE` | off               | Set to `1` when the app is served over https    |
-| `HOST`, `PORT` | `127.0.0.1`, `5000`          | Use `HOST=0.0.0.0` to open it from other devices on your network |
+| `HOST`, `PORT` | `127.0.0.1`, `8765`          | Use `HOST=0.0.0.0` to open it from other devices on your network |
 
 Databases from an older version are upgraded automatically when the app starts.
 
