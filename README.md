@@ -52,6 +52,14 @@ It runs on your own computer (or a small server) and keeps all data in one SQLit
 **Customers**
 - Customer name, address, mail ID, phone number and city, with each customer's invoice history
 
+**Shared by every computer (Neon)**
+- Install the app on each computer and connect them all to one online PostgreSQL database (e.g. Neon):
+  a change made on any computer shows up on all the others. The first start asks for the connection string
+  (`setup_db.py`); existing data on a computer can be copied into the empty shared database
+- Safe when several computers save at the same moment: stock changes are atomic and invoice numbers are
+  handed out one at a time, so stock can't go wrong and numbers never repeat
+- `backup.py` downloads a full copy of the shared data to a local file
+
 **Logins and access**
 - Everyone logs in with their own username and password. Roles: Administrator, Partner, Investor, Staff
 - The administrator adds people and decides, **section by section**, what each person gets: no access,
@@ -98,6 +106,7 @@ Open http://127.0.0.1:5000 in your browser. Then:
 | Variable       | Default                      | Purpose                                         |
 |----------------|------------------------------|-------------------------------------------------|
 | `INVOICER_DB`  | `instance/invoicer.sqlite3`  | Where the database file is stored               |
+| `DATABASE_URL` | from `instance/database_url.txt` | Shared PostgreSQL database (e.g. Neon) used by every computer. Empty = data on this computer only |
 | `SECRET_KEY`   | random, saved in `instance/` | Key that signs login cookies (optional to set) |
 | `SESSION_COOKIE_SECURE` | off               | Set to `1` when the app is served over https    |
 | `HOST`, `PORT` | `127.0.0.1`, `5000`          | Use `HOST=0.0.0.0` to open it from other devices on your network |
@@ -120,7 +129,8 @@ flask --app run create-admin      # creates an admin, or resets the password of 
 
 ```bash
 pip install pytest
-python -m pytest
+python -m pytest                                            # on SQLite
+TEST_DATABASE_URL=postgresql://... python -m pytest         # on an empty PostgreSQL database (it gets wiped!)
 ```
 
 ## Project layout
@@ -130,8 +140,9 @@ run.py                  # starts the app
 invoicer/
   __init__.py           # app factory
   auth.py               # logins, roles, per-section access, user management
+  db.py                 # SQLite (one computer) or PostgreSQL/Neon (shared) database access
+  transfer.py           # copy all data between databases (setup and backups)
   schema.sql            # database tables
-  db.py                 # database connection & settings
   services.py           # invoice totals and numbering, stock movements, cancel/payment logic
   importer.py           # reads stock from uploaded PDF / Excel / Word / CSV files
   views.py              # pages and form handling

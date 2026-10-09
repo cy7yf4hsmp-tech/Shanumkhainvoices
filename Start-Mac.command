@@ -22,6 +22,7 @@ echo "Checking the app's components..."
 .venv/bin/python -m pip install --disable-pip-version-check -q -r requirements.txt || {
   echo "Setup failed. Check your internet connection. If it keeps failing, delete the .venv folder and try again."
   read -r -p "Press Enter to close..."; exit 1; }
+.venv/bin/python setup_db.py --if-needed || { read -r -p "Press Enter to close..."; exit 1; }
 echo
 echo "The app is starting. Your browser will open at  http://127.0.0.1:5000"
 echo "KEEP THIS WINDOW OPEN while you use the app. To stop it, close this window (or press Ctrl+C)."

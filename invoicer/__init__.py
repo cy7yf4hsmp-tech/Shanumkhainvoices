@@ -19,8 +19,12 @@ def create_app(test_config=None):
         SESSION_COOKIE_SECURE=os.environ.get("SESSION_COOKIE_SECURE") == "1",
         MAX_CONTENT_LENGTH=15 * 1024 * 1024,  # uploads (stock files) up to 15 MB
         DATABASE=os.environ.get("INVOICER_DB", os.path.join(app.instance_path, "invoicer.sqlite3")),
+        # Shared online database (e.g. Neon). When empty, data stays on this computer (DATABASE file above).
+        DATABASE_URL=os.environ.get("DATABASE_URL") or read_database_url(app.instance_path),
+        TIMEZONE=os.environ.get("APP_TIMEZONE", "Asia/Kolkata"),
     )
     if test_config:
+        app.config["DATABASE_URL"] = None   # tests choose their database explicitly
         app.config.update(test_config)
     os.makedirs(app.instance_path, exist_ok=True)
     if not app.config["SECRET_KEY"]:
@@ -47,7 +51,8 @@ def create_app(test_config=None):
     def init_db_command():
         """Create tables (safe to run repeatedly)."""
         db.init_db()
-        print("Database ready at", app.config["DATABASE"])
+        print("Database ready:", "shared online database" if db.is_postgres_url(app.config["DATABASE_URL"])
+              else app.config["DATABASE"])
 
     return app
 
@@ -63,3 +68,17 @@ def _load_or_create_secret(folder):
         f.write(key)
     os.chmod(path, 0o600)
     return key
+
+
+DATABASE_URL_FILE = "database_url.txt"
+
+
+def read_database_url(folder):
+    """The shared database address saved by setup_db.py ('local' or missing = this computer only)."""
+    path = os.path.join(folder, DATABASE_URL_FILE)
+    if os.path.exists(path):
+        with open(path) as f:
+            value = f.read().strip()
+        if db.is_postgres_url(value):
+            return value
+    return None

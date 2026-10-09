@@ -210,7 +210,7 @@ def login():
         db = get_db()
         username = request.form.get("username", "").strip()
         password = request.form.get("password", "")
-        user = db.execute("SELECT * FROM users WHERE username = ?", (username,)).fetchone()
+        user = db.execute("SELECT * FROM users WHERE lower(username) = lower(?)", (username,)).fetchone()
         error = "Wrong username or password"
         if user and user["locked_until"] and user["locked_until"] > _now():
             error = f"Too many wrong passwords. Try again after {user['locked_until'][11:16]}."
@@ -348,7 +348,7 @@ def user_form(uid=None):
             losing_admin = user["role"] == "admin" and (data["role"] != "admin" or not data["active"])
             if losing_admin and _active_admins(db, excluding=uid) == 0:
                 error = "There must always be at least one active administrator"
-        if not error and uid is None and db.execute("SELECT 1 FROM users WHERE username = ?",
+        if not error and uid is None and db.execute("SELECT 1 FROM users WHERE lower(username) = lower(?)",
                                                     (data["username"],)).fetchone():
             error = "That username is already taken"
         if error:
@@ -413,7 +413,7 @@ def init_app(app):
         if len(password) < MIN_PASSWORD:
             raise click.ClickException(f"Password must be at least {MIN_PASSWORD} characters")
         db = get_db()
-        existing = db.execute("SELECT id FROM users WHERE username = ?", (username,)).fetchone()
+        existing = db.execute("SELECT id FROM users WHERE lower(username) = lower(?)", (username,)).fetchone()
         if existing:
             db.execute("UPDATE users SET password_hash = ?, role = 'admin', active = 1, failed_logins = 0, "
                        "locked_until = NULL WHERE id = ?", (generate_password_hash(password), existing["id"]))

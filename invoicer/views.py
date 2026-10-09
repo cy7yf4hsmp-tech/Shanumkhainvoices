@@ -1,12 +1,11 @@
 import csv
 import io
-import sqlite3
 from datetime import date, timedelta
 
 from flask import Blueprint, Response, abort, flash, redirect, render_template, request, url_for
 
 from . import importer, services
-from .db import get_db, get_settings, save_settings
+from .db import IntegrityError, get_db, get_settings, save_settings
 from .services import StockError
 
 bp = Blueprint("main", __name__)
@@ -114,7 +113,7 @@ def product_new():
                 services.record_movement(db, cur.lastrowid, opening, "opening", note="Opening stock",
                                          allow_negative=True)
             db.commit()
-        except sqlite3.IntegrityError as exc:
+        except IntegrityError:
             db.rollback()
             flash("Could not save product: that SKU is already used by another product", "error")
             return render_template("product_form.html", product=data | {"stock": opening}, new=True)
@@ -144,7 +143,7 @@ def product_edit(pid):
                 "UPDATE products SET sku=:sku, name=:name, hsn=:hsn, unit=:unit, price=:price, cost=:cost, "
                 "gst_rate=:gst_rate, reorder_level=:reorder_level WHERE id=:id", data | {"id": pid})
             db.commit()
-        except sqlite3.IntegrityError as exc:
+        except IntegrityError:
             db.rollback()
             flash("Could not save product: that SKU is already used by another product", "error")
             return render_template("product_form.html", product=data | {"id": pid}, new=False)

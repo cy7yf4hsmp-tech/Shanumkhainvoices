@@ -20,6 +20,7 @@ if not exist ".venv\Scripts\python.exe" (
 )
 echo Checking the app's components...
 ".venv\Scripts\python.exe" -m pip install --disable-pip-version-check -q -r requirements.txt || goto failed
+".venv\Scripts\python.exe" setup_db.py --if-needed || goto failed
 
 echo.
 echo The app is starting. Your browser will open at  http://127.0.0.1:5000

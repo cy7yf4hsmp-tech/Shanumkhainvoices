@@ -1,6 +1,7 @@
-"""Business logic for stock and invoices. All functions take an open sqlite3 connection."""
+"""Business logic for stock and invoices. All functions take an open database connection (see db.py)."""
 from datetime import date, datetime, timedelta
 
+from .db import IntegrityError, PgConnection
 from .utils import r2
 
 
@@ -24,17 +25,20 @@ def now_local():
 
 def record_movement(db, product_id, qty, kind, reference="", note="", allow_negative=False, when=None):
     """Change a product's stock by `qty` (signed) and log the movement (dated in local time)."""
-    product = db.execute("SELECT id, name, stock FROM products WHERE id = ?", (product_id,)).fetchone()
+    product = db.execute("SELECT id, name FROM products WHERE id = ?", (product_id,)).fetchone()
     if product is None:
         raise StockError(f"Product #{product_id} not found")
-    balance = r2(product["stock"] + qty)
+    # Change the stock in one step inside the database, so two computers saving at the same moment
+    # can't overwrite each other (on PostgreSQL the row stays locked until this transaction ends).
+    balance = db.execute("UPDATE products SET stock = ROUND(CAST(stock + ? AS NUMERIC), 3) WHERE id = ? RETURNING stock",
+                         (qty, product_id)).fetchone()[0]
+    balance = r2(balance)
     if balance < 0 and not allow_negative:
         raise StockError(
-            f"Not enough stock for '{product['name']}': available {product['stock']:g}, need {-qty:g}"
+            f"Not enough stock for '{product['name']}': available {r2(balance - qty):g}, need {-qty:g}"
         )
-    db.execute("UPDATE products SET stock = ? WHERE id = ?", (balance, product_id))
     db.execute(
-        "INSERT INTO stock_movements (product_id, date, kind, qty, balance, reference, note, user) "
+        'INSERT INTO stock_movements (product_id, date, kind, qty, balance, reference, note, "user") '
         "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
         (product_id, when or now_local(), kind, qty, balance, reference, note, current_user_name()),
     )
@@ -131,22 +135,18 @@ def create_invoice(db, customer, lines, tax_type="intra", invoice_date=None, due
         if due_days < 0:
             raise ValueError("Payment due days cannot be negative")
         due_date = (inv_date + timedelta(days=due_days)).isoformat()
-    number, fy, seq = next_invoice_number(db, inv_date)
     amount_paid = r2(min(max(amount_paid, 0), totals["total"]))
     status = payment_status(amount_paid, totals["total"])
 
     try:
-        cur = db.execute(
-            """INSERT INTO invoices (number, fy, seq, date, due_days, due_date, customer_id, customer_name, customer_address,
-                   customer_phone, customer_gstin, ship_to_address, tax_type, subtotal, discount, tax_total, round_off, total,
-                   amount_paid, status, notes, created_by)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            (number, fy, seq, inv_date.isoformat(), due_days, due_date, customer.get("id"),
+        if isinstance(db, PgConnection):
+            # only one computer at a time picks the next invoice number (released when this transaction ends)
+            db.execute("SELECT pg_advisory_xact_lock(?)", (424242,))
+        invoice_id, number = _insert_invoice(db, inv_date, lambda number, fy, seq: (
+            number, fy, seq, inv_date.isoformat(), due_days, due_date, customer.get("id"),
              customer["name"].strip(), customer.get("address", ""), customer.get("phone", ""),
              customer.get("gstin", ""), customer.get("ship_to_address") or customer.get("address", ""), tax_type, totals["subtotal"], totals["discount"],
-             totals["tax_total"], totals["round_off"], totals["total"], amount_paid, status, notes, current_user_name()),
-        )
-        invoice_id = cur.lastrowid
+             totals["tax_total"], totals["round_off"], totals["total"], amount_paid, status, notes, current_user_name()))
         for l in computed:
             db.execute(
                 """INSERT INTO invoice_items (invoice_id, product_id, description, hsn, unit, qty, price,
@@ -163,6 +163,30 @@ def create_invoice(db, customer, lines, tax_type="intra", invoice_date=None, due
         db.rollback()
         raise
     return invoice_id
+
+
+INVOICE_INSERT = """INSERT INTO invoices (number, fy, seq, date, due_days, due_date, customer_id, customer_name,
+       customer_address, customer_phone, customer_gstin, ship_to_address, tax_type, subtotal, discount, tax_total,
+       round_off, total, amount_paid, status, notes, created_by)
+   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"""
+
+
+def _insert_invoice(db, inv_date, values_for):
+    """Insert the invoice row with the next free number; if another computer took that number a moment
+    earlier, try the following one."""
+    if getattr(db, "in_transaction", True) is False:
+        db.execute("BEGIN IMMEDIATE")  # SQLite: take the write lock now; also RELEASE SAVEPOINT would commit otherwise
+    for _attempt in range(5):
+        number, fy, seq = next_invoice_number(db, inv_date)
+        db.execute("SAVEPOINT new_invoice")
+        try:
+            cur = db.execute(INVOICE_INSERT, values_for(number, fy, seq))
+        except IntegrityError:
+            db.execute("ROLLBACK TO SAVEPOINT new_invoice")
+            continue
+        db.execute("RELEASE SAVEPOINT new_invoice")
+        return cur.lastrowid, number
+    raise ValueError("Could not give this invoice a number. Please try saving again.")
 
 
 def payment_status(paid, total):

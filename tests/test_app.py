@@ -1,3 +1,5 @@
+import os
+
 import pytest
 
 from invoicer import create_app
@@ -5,10 +7,25 @@ from invoicer.db import get_db
 from invoicer.utils import amount_in_words, inr
 
 
+# Set TEST_DATABASE_URL=postgresql://... to run every test against PostgreSQL (e.g. a throw-away Neon branch).
+PG_URL = os.environ.get("TEST_DATABASE_URL")
+
+
+def fresh_app(tmp_path, **config):
+    """A new app on an empty database: a new SQLite file, or an emptied PostgreSQL schema."""
+    config = {"TESTING": True, "DATABASE": str(tmp_path / "test.sqlite3"), "SECRET_KEY": "test"} | config
+    if PG_URL:
+        import psycopg
+        with psycopg.connect(PG_URL, autocommit=True) as conn:
+            conn.execute("DROP SCHEMA IF EXISTS public CASCADE")
+            conn.execute("CREATE SCHEMA public")
+        config["DATABASE_URL"] = PG_URL
+    return create_app(config)
+
+
 @pytest.fixture
 def app(tmp_path):
-    app = create_app({"TESTING": True, "DATABASE": str(tmp_path / "test.sqlite3"), "SECRET_KEY": "test",
-                      "CSRF_ENABLED": False})
+    app = fresh_app(tmp_path, CSRF_ENABLED=False)
     with app.app_context():
         make_user(get_db(), "admin", "admin")
     return app
@@ -413,7 +430,7 @@ def test_must_log_in(app):
 
 
 def test_first_run_setup_creates_admin(tmp_path):
-    app = create_app({"TESTING": True, "DATABASE": str(tmp_path / "new.sqlite3"), "CSRF_ENABLED": False})
+    app = fresh_app(tmp_path, CSRF_ENABLED=False)
     c = app.test_client()
     assert "/setup" in c.get("/").headers["Location"]
     resp = c.post("/setup", data={"full_name": "Owner", "username": "owner", "password": "longpassword",
@@ -539,12 +556,12 @@ def test_changes_record_who_made_them(app, client):
     with app.app_context():
         db = get_db()
         assert db.execute("SELECT created_by FROM invoices").fetchone()[0] == "Admin"
-        assert db.execute("SELECT user FROM stock_movements WHERE kind = 'sale'").fetchone()[0] == "Admin"
+        assert db.execute("SELECT \"user\" FROM stock_movements WHERE kind = 'sale'").fetchone()[0] == "Admin"
         assert db.execute("SELECT created_by FROM expenses").fetchone()[0] == "Admin"
 
 
 def test_csrf_protection(tmp_path):
-    app = create_app({"TESTING": True, "DATABASE": str(tmp_path / "c.sqlite3"), "SECRET_KEY": "t"})
+    app = fresh_app(tmp_path)
     with app.app_context():
         make_user(get_db(), "admin", "admin")
     c = app.test_client()
@@ -578,3 +595,41 @@ def test_hidden_from_search_engines(app):
     assert r.status_code == 200 and b"Disallow: /" in r.data
     login_page = c.get("/login")
     assert "noindex" in login_page.headers["X-Robots-Tag"] and b'name="robots" content="noindex' in login_page.data
+
+
+def test_two_computers_saving_at_the_same_time(app, tmp_path):
+    """Two copies of the app (two PCs) on the same database, saving invoices at the same moment."""
+    import threading
+    from invoicer import create_app as _create
+    with app.app_context():
+        db = get_db()
+        db.execute("INSERT INTO products (name, price, gst_rate, stock) VALUES ('Fan', 100, 18, 0)")
+        db.commit()
+    c0 = app.test_client()
+    login(c0, "admin")
+    c0.post("/products/1/stock", data={"action": "in", "qty": "15"})
+    # a second computer: its own app, same database
+    other = _create({"TESTING": True, "CSRF_ENABLED": False, "SECRET_KEY": "pc2",
+                     "DATABASE": app.config["DATABASE"], "DATABASE_URL": app.config.get("DATABASE_URL")})
+    clients = []
+    for a in (app, other):
+        for _ in range(10):
+            c = a.test_client()
+            login(c, "admin")
+            clients.append(c)
+    results = []
+
+    def sell(c):
+        results.append(c.post("/invoices/new", data=invoice_data(qty=["1"], product_id=["1"], description=["Fan"])).status_code)
+
+    threads = [threading.Thread(target=sell, args=(c,)) for c in clients]  # 20 sales, only 15 in stock
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    assert sorted(results) == [302] * 15 + [400] * 5  # exactly 15 succeed, 5 refused "not enough stock"
+    with app.app_context():
+        db = get_db()
+        assert db.execute("SELECT stock FROM products WHERE id = 1").fetchone()[0] == 0
+        numbers = [r[0] for r in db.execute("SELECT seq FROM invoices ORDER BY seq")]
+    assert numbers == list(range(1, 16))  # no duplicate or skipped invoice numbers

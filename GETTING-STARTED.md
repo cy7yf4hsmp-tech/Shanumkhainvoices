@@ -1,9 +1,28 @@
 # Getting started: Shanumkha Invoices & Stock
 
-These steps set up the app on **one computer**. It takes about 15 minutes the first time.
-Everything is done with double-clicks; you don't need to type commands.
+The app is installed on **every computer** that uses it. All computers share **one online database (Neon)**,
+so a change made by anyone shows up for everyone, and each person only sees and changes what their login allows.
+Setting up a computer takes about 15 minutes; you don't need to type commands.
 
 ---
+
+## Step 0: Create the shared database (administrator, once only)
+
+Neon is a company that keeps your database online, safely, with automatic backups. It is **not a website**:
+nobody can see it, and nothing appears in Google. Only computers that have the connection string can reach it.
+
+1. Go to **https://neon.tech** → **Sign up** (you can use your Google account).
+2. Create a **project**: name it `shanumkha`. For **Region** choose the one closest to you, e.g.
+   **AWS Asia Pacific (Singapore)**. Click **Create project**.
+3. On the project dashboard click **Connect**. Keep **Connection pooling** switched on, then click
+   **Copy snippet** or the copy button next to the connection string. It looks like
+   `postgresql://neondb_owner:xxxx@ep-xxxx-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require`
+4. Keep this connection string **private**, like a bank password. You'll paste it once on each computer
+   (Step 3). Send it to your team personally (e.g. WhatsApp to the person, not a group), never by public email.
+
+> The free Neon plan is enough to start with. After a few minutes of no use, Neon pauses the database; the
+> first click after that can take a second or two, then everything is fast again.
+
 
 ## Step 1: Install Python (one time only)
 
@@ -33,6 +52,9 @@ Python is the free engine the app runs on.
 - If a blue box says *"Windows protected your PC"*: click **More info** → **Run anyway**.
   (It appears because the file is new to Windows, not because it is unsafe.)
 - A black window opens. **The first time it prepares the app for 1–3 minutes (internet needed).**
+- It then asks **"Where should this computer keep the app's data?"**: type **1** (shared online database)
+  and press Enter, then **paste the connection string** (right-click → Paste) and press Enter. It checks the
+  connection and saves it. You won't be asked again on this computer.
 - Your browser then opens the app at **http://127.0.0.1:5000**.
 
 **Mac:** double-click **Start-Mac.command**. The first time, macOS says *"Apple could not verify
@@ -49,10 +71,16 @@ This warning appears for any app not from the App Store; it only has to be allow
 > To start again tomorrow, double-click **Start-Windows.bat** again (it will be fast after the first time).
 > If the browser didn't open, open it yourself and go to **http://127.0.0.1:5000**.
 
-## Step 4: Create the administrator login (first time only)
+## Step 4: Create the administrator login (first computer only)
 
-The first page asks you to **create the administrator**. Enter your name, a username and a password
-(at least 8 characters). **Write the password down somewhere safe.**
+On the **very first computer** connected to the new database, the first page asks you to **create the
+administrator**. Enter your name, a username and a password (at least 8 characters). **Write it down somewhere safe.**
+
+On every other computer you'll see the **Log in** page instead: log in with the username and password the
+administrator gave you.
+
+> Already used the app on this computer before Neon? When you paste the connection string, the app offers to
+> **copy this computer's data into the shared database** (only if the shared database is still empty). Type **y**.
 
 ## Step 5: Enter your business details
 
@@ -121,12 +149,14 @@ The **Shanumkha Invoices** icon then appears in your Dock / Start menu / desktop
 
 ## Backups: please do this every week
 
-1. Double-click **Backup-Windows.bat** (Mac: **Backup-Mac.command**).
-2. A copy of all your data is saved in the **backups** folder inside the app folder.
+Neon keeps its own copies of your database. As extra safety, keep your own copy too:
+
+1. On any one computer, double-click **Backup-Windows.bat** (Mac: **Backup-Mac.command**).
+2. A full copy of the shared data is downloaded into the **backups** folder inside the app folder.
 3. Copy the **backups** folder to a pen drive or Google Drive.
 
-**To restore** a backup: stop the app, then copy `invoicer.sqlite3` and `secret_key` from the backup into
-the `instance` folder (replace the files there), and start the app again.
+If you ever need to restore from one of these copies, keep the backup file and ask for help: it can be loaded
+back into a new Neon database.
 
 ## Getting a newer version later
 
@@ -135,11 +165,21 @@ the `instance` folder (replace the files there), and start the app again.
 3. Copy the **instance** folder from your old app folder into the new folder.
 4. Start the app from the new folder. Your data and logins carry over automatically.
 
-## Using it from other locations
+## Adding another computer (any location, any Wi-Fi)
 
-Right now the app runs on **this computer only**. People at other locations or on other Wi-Fi networks
-can't open it yet. To share it, the app needs to be put on an online server (for example PythonAnywhere
-or a cloud server). This is the next step and can be set up when you are ready.
+1. On the new computer do **Step 1** (Python), **Step 2** (unzip) and **Step 3** (start, type **1**, paste the
+   connection string).
+2. The person logs in with the username and password the administrator created for them under **Users & access**.
+
+That's all: every computer sees the same invoices, stock, payments and so on, live.
+
+**Someone leaves or a laptop is lost?** The administrator deactivates their login under **Users & access**.
+If the laptop itself might be misused, also reset the database password in Neon (**Roles → Reset password**)
+and paste the new connection string on the other computers (see Troubleshooting: *Change the database*).
+
+> **Important:** every computer that is connected stores the connection string (in `instance\database_url.txt`).
+> Someone with technical skills and access to that computer's files could use it to open the database directly,
+> outside the app and its access rules. Only install the app on computers of people you trust.
 
 ## Troubleshooting
 
@@ -152,4 +192,7 @@ or a cloud server). This is the next step and can be set up when you are ready.
 | Browser says "can't reach this page" | The black window must be open. Wait a few seconds and refresh. |
 | The black window shows an error about the address or port being in use | The app is already running in another black window. Use that one, or close it first. |
 | Forgot the administrator password | Open the app folder, click the address bar, type `cmd` and press Enter. In the window type `.venv\Scripts\flask --app run create-admin` and follow the questions. |
+| "Could not connect" / "password authentication failed" when pasting | Copy the connection string again from Neon (**Connect**), including the password, and paste the whole line. |
+| The app is slow on the first click of the day | Neon was paused to save resources; it wakes up in a second or two. |
+| Change the database (or switch to "this computer only") | Delete the file `instance/database_url.txt` in the app folder and start the app again; it asks again. |
 | Someone is locked out | They typed a wrong password 5 times. Wait 15 minutes, or the admin clicks **Unlock** under **Users & access**. |

@@ -88,7 +88,7 @@ CREATE TABLE IF NOT EXISTS stock_movements (
     balance    REAL NOT NULL,
     reference  TEXT DEFAULT '',
     note       TEXT DEFAULT '',
-    user       TEXT DEFAULT ''
+    "user"     TEXT DEFAULT ''
 );
 
 CREATE INDEX IF NOT EXISTS idx_items_invoice ON invoice_items(invoice_id);
@@ -149,6 +149,8 @@ CREATE TABLE IF NOT EXISTS users (
     last_login    TEXT,
     created_at    TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username_lower ON users (lower(username));
 
 -- What each (non-admin) user may do in each section: view | edit. No row = no access.
 CREATE TABLE IF NOT EXISTS user_permissions (
