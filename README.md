@@ -63,6 +63,7 @@ It runs on your own computer (or a small server) and keeps all data in one SQLit
 - The app records who created each invoice, stock change, expense and loan
 
 **Other**
+- Installable as an app (own window and icon) from Chrome, Edge or Safari; works on phones once hosted online
 - Dashboard: sales, outstanding amount, stock value, expenses this month, invoices waiting for dispatch,
   **stock out today / this week / this month**, low stock, recent invoices
 - Business settings (name, address, GSTIN, bank/UPI details, terms) printed on every invoice

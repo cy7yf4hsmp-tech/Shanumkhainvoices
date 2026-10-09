@@ -4,6 +4,7 @@ Every page belongs to a section. A user has, per section, no access, "view" or "
 Admins can do everything and are the only ones who can manage users.
 """
 import hmac
+import json
 import secrets
 from datetime import datetime, timedelta
 
@@ -46,7 +47,7 @@ EDIT_PAGES = {"main.product_new", "main.product_edit", "main.product_import", "m
               "main.invoice_new", "main.expense_edit", "main.loan_form"}
 # Endpoints that don't belong to the section their name suggests.
 SECTION_OVERRIDES = {"main.invoice_pay": "payments"}
-PUBLIC_ENDPOINTS = {"auth.login", "auth.setup", "static"}
+PUBLIC_ENDPOINTS = {"auth.login", "auth.setup", "auth.manifest", "auth.service_worker", "static"}
 
 MAX_FAILED_LOGINS = 5
 LOCK_MINUTES = 15
@@ -153,6 +154,35 @@ def guard():
             return redirect(first_allowed_page())
         abort(403)
     return None
+
+
+# ---------------------------------------------------------------- installable app (icon + own window)
+
+@bp.route("/manifest.webmanifest")
+def manifest():
+    from .db import get_settings
+    name = get_settings().get("business_name") or "Shanumkha Invoices"
+    icon = lambda f, size, purpose: {"src": url_for("static", filename=f"icons/{f}"), "sizes": f"{size}x{size}",
+                                     "type": "image/png", "purpose": purpose}
+    data = {
+        "name": f"{name} · Invoices & Stock", "short_name": "Shanumkha Invoices", "id": "/", "start_url": "/",
+        "scope": "/", "display": "standalone", "background_color": "#f4f6f9", "theme_color": "#14213d",
+        "description": "Invoices, stock, dispatch, payments, expenses and loans",
+        "icons": [icon("icon-192.png", 192, "any"), icon("icon-512.png", 512, "any"),
+                  icon("icon-maskable-192.png", 192, "maskable"), icon("icon-maskable-512.png", 512, "maskable")],
+    }
+    resp = current_app.response_class(json.dumps(data), mimetype="application/manifest+json")
+    resp.headers["Cache-Control"] = "no-cache"
+    return resp
+
+
+@bp.route("/sw.js")
+def service_worker():
+    resp = current_app.send_static_file("sw.js")
+    resp.headers["Content-Type"] = "application/javascript"
+    resp.headers["Cache-Control"] = "no-cache"
+    resp.headers["Service-Worker-Allowed"] = "/"
+    return resp
 
 
 # ---------------------------------------------------------------- login / logout / setup

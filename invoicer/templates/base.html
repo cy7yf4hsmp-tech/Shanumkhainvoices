@@ -5,6 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}{{ settings.business_name }}{% endblock %} · Invoices &amp; Stock</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="manifest" href="{{ url_for('auth.manifest') }}">
+  <meta name="theme-color" content="#14213d">
+  <link rel="icon" type="image/png" href="{{ url_for('static', filename='icons/favicon.png') }}">
+  <link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/apple-touch-icon.png') }}">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Shanumkha Invoices">
 </head>
 <body>
 <header class="topbar">
@@ -32,5 +39,10 @@
   {% block content %}{% endblock %}
 </main>
 {% block scripts %}{% endblock %}
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => navigator.serviceWorker.register('{{ url_for('auth.service_worker') }}').catch(() => {}));
+  }
+</script>
 </body>
 </html>

@@ -556,3 +556,17 @@ def test_csrf_protection(tmp_path):
     # logging in starts a fresh session with a new token, which the next page carries
     token = re.search(rb'name="_csrf" value="([^"]+)"', c.get("/expenses").data).group(1).decode()
     assert c.post("/expenses", data={"category": "Auto", "amount": "5", "_csrf": token}).status_code == 302
+
+
+def test_installable_app_files_are_public(app):
+    import json as _json
+    c = app.test_client()  # not logged in
+    m = c.get("/manifest.webmanifest")
+    assert m.status_code == 200 and m.mimetype == "application/manifest+json"
+    data = _json.loads(m.data)
+    assert data["display"] == "standalone" and {i["sizes"] for i in data["icons"]} == {"192x192", "512x512"}
+    for icon in data["icons"]:
+        assert c.get(icon["src"]).status_code == 200
+    sw = c.get("/sw.js")
+    assert sw.status_code == 200 and "javascript" in sw.headers["Content-Type"]
+    assert b'rel="manifest"' in c.get("/login").data

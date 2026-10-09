@@ -85,6 +85,28 @@ Either:
 2. Click **+ New invoice**, choose the customer, add items, set **Payment due (days)**, then **Save invoice**.
 3. Click **Print / Save PDF** to print it or save it as a PDF. It then appears under **Dispatch**.
 
+## Step 9: Make it an app with its own icon (optional)
+
+With the app running, install it so it opens in its own window with an icon, like any other app:
+
+- **Google Chrome or Microsoft Edge (Windows or Mac):** open **http://127.0.0.1:5000**, then click the
+  **install icon** at the right end of the address bar (a small screen with a down arrow) → **Install**.
+  Or use the **⋮** menu → **Cast, save and share** → **Install page as app** (Edge: **⋯** → **Apps** →
+  **Install this site as an app**).
+- **Safari on Mac:** open **http://127.0.0.1:5000**, then **File → Add to Dock** → **Add**.
+
+The **Shanumkha Invoices** icon then appears in your Dock / Start menu / desktop. Click it to open the app.
+
+> The app still needs its black (Terminal) window running in the background. If you click the icon while it
+> isn't running, you'll see a "Can't connect" page. Start it with Start-Windows.bat / Start-Mac.command and
+> click **Try again**.
+
+**Start it automatically when the computer turns on:**
+- **Mac:** System Settings → General → **Login Items** → **+** → choose **Start-Mac.command**.
+- **Windows:** press **Windows key + R**, type `shell:startup`, press Enter, and put a **shortcut** to
+  **Start-Windows.bat** in the folder that opens (right-click Start-Windows.bat → Show more options →
+  Create shortcut, then move the shortcut there).
+
 ---
 
 ## Everyday use
